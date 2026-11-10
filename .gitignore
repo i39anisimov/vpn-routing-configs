@@ -1,0 +1,6 @@
+.claude/
+o3-debug-*/
+__pycache__/
+*.pyc
+*.tmp
+.DS_Store
