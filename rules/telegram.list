@@ -1,6 +1,6 @@
 # NAME: telegram.list
 # AUTHOR: ivn
-# SOURCE: blackmatrix7/ios_rule_script: rule/Shadowrocket/Telegram/Telegram.list; toneywhitez/zkeen_rules: telegram_ips.list; misha-tgshv/shadowrocket-configuration-file: rules/voice_ports.list (Telegram-порты)
+# SOURCE: blackmatrix7/ios_rule_script: rule/Shadowrocket/Telegram/Telegram.list; вручную поддерживаемые IP-диапазоны и порты
 # UPSTREAM_UPDATED: Telegram 2025-09-10
 # UPDATED: 2026-11-10
 # CATEGORY: telegram
@@ -47,7 +47,7 @@ IP-ASN,44907,no-resolve
 IP-ASN,59930,no-resolve
 IP-ASN,62014,no-resolve
 IP-ASN,62041,no-resolve
-# --- дополнительные IP-диапазоны zkeen и порты голосовых звонков ---
+# --- дополнительные IP-диапазоны и порты голосовых звонков ---
 IP-CIDR,91.105.192.0/23,no-resolve
 IP-CIDR,95.161.64.0/20,no-resolve
 IP-CIDR,95.161.80.0/24,no-resolve

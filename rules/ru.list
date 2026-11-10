@@ -1,6 +1,6 @@
 # NAME: ru.list
-# AUTHOR: ivn (generated from misha-tgshv/shadowrocket-configuration-file)
-# SOURCE: misha-tgshv/shadowrocket-configuration-file:rules/domains_banking.list; GEOIP,RU; manual curated RU services
+# AUTHOR: ivn
+# SOURCE: GEOIP,RU; вручную поддерживаемые домены российских банков и сервисов
 # UPDATED: 2026-11-10
 # CATEGORY: ru
 # POLICY: назначается конфигом (shadowrocket_home.conf / shadowrocket_general.conf)

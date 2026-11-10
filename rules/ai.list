@@ -1,6 +1,6 @@
 # NAME: ai.list
 # AUTHOR: ivn
-# SOURCE: blackmatrix7/ios_rule_script: rule/Shadowrocket/Claude/Claude.list, rule/Shadowrocket/OpenAI/OpenAI.list; misha-tgshv/shadowrocket-configuration-file: source/community.list (# ai), source/domains.list, rules/domains_antifilter.list, rules/domains_refilter.list; manual curated AI
+# SOURCE: blackmatrix7/ios_rule_script: rule/Shadowrocket/Claude/Claude.list, rule/Shadowrocket/OpenAI/OpenAI.list; вручную поддерживаемые AI-сервисы
 # UPSTREAM_UPDATED: Claude 2025-06-06; OpenAI 2025-06-06
 # UPDATED: 2026-11-10
 # CATEGORY: ai
@@ -46,7 +46,7 @@ DOMAIN-KEYWORD,openai
 IP-CIDR,24.199.123.28/32,no-resolve
 IP-CIDR,64.23.132.171/32,no-resolve
 IP-ASN,20473,no-resolve
-# --- прочие AI-сервисы (community/antifilter/refilter + ручной список) ---
+# --- прочие AI-сервисы (ручной список) ---
 DOMAIN-SUFFIX,apple-relay.apple.com
 DOMAIN-SUFFIX,composer.opera-api.com
 DOMAIN-SUFFIX,copilot.microsoft.com

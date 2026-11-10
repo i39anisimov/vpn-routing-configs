@@ -1,11 +1,10 @@
 # VPN routing configs для Shadowrocket
 
-Два готовых конфига на основе правил
-[misha-tgshv/shadowrocket-configuration-file](https://github.com/misha-tgshv/shadowrocket-configuration-file)
-и актуальных списков
-[blackmatrix7/ios_rule_script](https://github.com/blackmatrix7/ios_rule_script)
-для Telegram, Claude, OpenAI, YouTube и Instagram. Правила разбиты на пять
-категорий, конфиги проверяются и пересобираются скриптом.
+Два готовых конфига для Shadowrocket. Списки правил для Telegram, Claude,
+OpenAI, YouTube и Instagram взяты из
+[blackmatrix7/ios_rule_script](https://github.com/blackmatrix7/ios_rule_script);
+российские адреса и прочие AI-сервисы поддерживаются вручную в `rules/*.list`.
+Правила разбиты на пять категорий, конфиги проверяются и пересобираются скриптом.
 
 Дата сверки: **2026-11-10**. Версии upstream-списков blackmatrix7:
 Claude/OpenAI/YouTube/Instagram — 2025-06-06, Telegram — 2025-09-10.
@@ -33,7 +32,7 @@ Claude/OpenAI/YouTube/Instagram — 2025-06-06, Telegram — 2025-09-10.
 |---|---|---|---|---|---|
 | 1 | `rules/ru.list` | 1115 | `GEOIP,RU`, домены российских банков (список ЦБ РФ), `.рф`/`.su`, крупные российские сервисы на не-`.ru` доменах | `DIRECT` | `DIRECT` |
 | 2 | `rules/ai.list` | 157 | blackmatrix7 Claude (3) и OpenAI (35), плюс прочие AI-сервисы: Gemini, Copilot, Grok, Perplexity, DeepSeek, Mistral, Hugging Face, Midjourney, ElevenLabs и др. | `PROXY` | `PROXY` |
-| 3 | `rules/telegram.list` | 52 | blackmatrix7 Telegram (40), 6 дополнительных IP-диапазонов zkeen, Telegram-порты голосовых звонков | `PROXY` | `PROXY` |
+| 3 | `rules/telegram.list` | 52 | blackmatrix7 Telegram (40), 6 дополнительных IP-диапазонов, Telegram-порты голосовых звонков | `PROXY` | `PROXY` |
 | 4 | `rules/youtube.list` | 190 | blackmatrix7 YouTube: домены `youtube.*`, Googlevideo, YT CDN, `USER-AGENT` и IP-диапазоны | `DIRECT` | `PROXY` |
 | 5 | `rules/instagram.list` | 5 | blackmatrix7 Instagram: `instagram.com`, `cdninstagram.com`, `instagr.am`, ключевое слово `instagram`; AS32934 Meta для CDN и медиа | `DIRECT` | `PROXY` |
 | — | `FINAL` | — | всё, что не попало в категории | `DIRECT` | `PROXY` |
@@ -43,36 +42,21 @@ Claude/OpenAI/YouTube/Instagram — 2025-06-06, Telegram — 2025-09-10.
 AI-правила идут раньше YouTube — это страховка на случай пересечений
 конкретных AI-доменов с широкими правилами YouTube.
 
-### Как разложены исходные файлы
+### Состав категорий
 
-| Исходный файл | Категория | Комментарий |
-|---------------|-----------|-------------|
-| `rules/domains_banking.list` (misha-tgshv) | 1 — RU | целиком, 1047 правил (сайты банков ЦБ РФ) |
-| `blackmatrix7/.../Claude/Claude.list` | 2 — AI | целиком, 3 правила, upstream 2025-06-06 |
-| `blackmatrix7/.../OpenAI/OpenAI.list` | 2 — AI | целиком, 35 правил, upstream 2025-06-06 |
-| `source/community.list`, раздел `# ai` | 2 — AI | прочие AI-сервисы |
-| `source/community.list`, ключевое слово `chatgpt` | 2 — AI | вынесено из раздела `# special` |
-| `rules/domains_antifilter.list` | 2 — AI | только точные AI-домены (`gemini.google.com`, `copilot`, `grok`, `sora`, `openrouter` и т. п.) |
-| `rules/domains_refilter.list` | 2 — AI | только точные AI-домены и их API/CDN |
-| `source/domains.list` | 2 — AI | только AI-сервисы (`chat.com`, `api.jetbrains.ai`, `remove.bg`, `unscreen.com`) |
-| `blackmatrix7/.../Telegram/Telegram.list` | 3 — Telegram | целиком, 40 правил, upstream 2025-09-10 |
-| `toneywhitez/zkeen_rules/telegram_ips.list` | 3 — Telegram | 6 IP-диапазонов, не покрытых blackmatrix7 |
-| `rules/voice_ports.list` | 3 — Telegram | только Telegram-порты: 3478/3480/3484, 596–599, 1400 |
-| `blackmatrix7/.../YouTube/YouTube.list` | 4 — YouTube | целиком, 190 правил, upstream 2025-06-06 |
-| `blackmatrix7/.../Instagram/Instagram.list` | 5 — Instagram | целиком, 4 правила, upstream 2025-06-06; добавлен `IP-ASN,32934` (Meta) для CDN и медиа |
-| `rules/domains_youtube.list` (misha-tgshv) | — | заменён на актуальный `YouTube.list` от blackmatrix7 |
-| `source/community.list`, раздел `# youtube` | — | заменён на актуальный `YouTube.list` от blackmatrix7 |
-| `rules/domains_discord.list` | — | не входит в пять категорий |
-| `rules/domains_geo_detect.list` | — | сервисы определения IP/геолокации |
-| `rules/domains_ipchecker.list` | — | чекеры IP |
-| `rules/custom-proxy.list` | — | ручные proxy-исключения (TikTok, Habr) |
-| `rules/domain_ips.list` | — | IP, полученные из `source/domains.list` |
-| `rules/ips_antifilter.list` | — | IP-список заблокированных в РФ ресурсов |
-| `rules/ips_refilter.list` | — | IP-список Re-filter |
-| `rules/domains_antifilter.list`, `rules/domains_refilter.list` (остальное) | — | общие списки заблокированных ресурсов |
+| Категория | Что входит | Источник |
+|---|---|---|
+| 1 — RU | `GEOIP,RU`, домены банков ЦБ РФ, `.рф`/`.su`, крупные российские сервисы | вручную |
+| 2 — AI | Claude и OpenAI | `blackmatrix7/ios_rule_script` |
+| 2 — AI | прочие AI-сервисы: Gemini, Copilot, Grok, Perplexity, DeepSeek, Mistral, Hugging Face, Midjourney, ElevenLabs и др. | вручную |
+| 3 — Telegram | домены Telegram | `blackmatrix7/ios_rule_script` |
+| 3 — Telegram | дополнительные IP-диапазоны и порты голосовых звонков | вручную |
+| 4 — YouTube | домены, CDN, `USER-AGENT` и IP-диапазоны YouTube | `blackmatrix7/ios_rule_script` |
+| 5 — Instagram | домены Instagram и `IP-ASN,32934` Meta для CDN и медиа | `blackmatrix7/ios_rule_script` + вручную |
 
-Файлы «—» сознательно **не включены** в категории: это не российские адреса
-и не AI/Telegram/YouTube/Instagram. В `shadowrocket_home.conf` они ходят напрямую через
+Списки заблокированных в РФ ресурсов, Discord, geo-detect, ipchecker и
+custom-proxy в категории не входят: это не российские адреса и не
+AI/Telegram/YouTube/Instagram. В `shadowrocket_home.conf` они ходят напрямую через
 `FINAL,DIRECT`, в `shadowrocket_general.conf` — через прокси через `FINAL,PROXY`.
 
 ## Конфиги
@@ -250,10 +234,6 @@ python3 scripts/validate.py --strict # предупреждения считат
 
 ## Источники
 
-- [misha-tgshv/shadowrocket-configuration-file](https://github.com/misha-tgshv/shadowrocket-configuration-file) —
-  `domains_banking.list`, `domains_youtube.list`, `domains_antifilter.list`,
-  `domains_refilter.list`, `voice_ports.list`, `source/community.list`,
-  `source/domains.list`, `source/General.txt`.
 - [blackmatrix7/ios_rule_script](https://github.com/blackmatrix7/ios_rule_script),
   каталог `rule/Shadowrocket` (пять списков):
   - `Claude/Claude.list` — upstream 2025-06-06;
@@ -261,12 +241,6 @@ python3 scripts/validate.py --strict # предупреждения считат
   - `Telegram/Telegram.list` — upstream 2025-09-10;
   - `YouTube/YouTube.list` — upstream 2025-06-06;
   - `Instagram/Instagram.list` — upstream 2025-06-06.
-- [toneywhitez/zkeen_rules](https://github.com/toneywhitez/zkeen_rules) —
-  `telegram_ips.list`.
-- [MetaCubeX/meta-rules-dat](https://github.com/MetaCubeX/meta-rules-dat) —
-  источник `domains_geo_detect.list` (в конфиги не включён).
-- [1andrevich/Re-filter-lists](https://github.com/1andrevich/Re-filter-lists) —
-  источник `domains_refilter.list` / `ips_refilter.list`.
 
-Обновление списков из upstream автоматизировано в исходном репозитории
-через GitHub Actions; здесь списки зафиксированы на 2026-11-10.
+Остальные правила ведутся вручную в `rules/*.list`. Списки blackmatrix7
+зафиксированы на 2026-11-10.
