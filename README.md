@@ -113,10 +113,9 @@ FINAL,DIRECT
 - категория 5 (Instagram) — `PROXY`
 - всё остальное — `PROXY` (`FINAL,PROXY`)
 
-Остальные настройки `[General]` и `[Proxy Group]` одинаковые и взяты из
-`source/General.txt` исходного репозитория. `include` отключён; правила
-подключаются через `RULE-SET`, а `update-url` указывает на raw-URL конфига
-в этом репозитории.
+Остальные настройки `[General]` и `[Proxy Group]` одинаковые в обоих
+конфигах. `include` отключён; правила подключаются через `RULE-SET`,
+а `update-url` указывает на raw-URL конфига в этом репозитории.
 
 ### `repo.json`
 
@@ -226,8 +225,7 @@ python3 scripts/validate.py --strict # предупреждения считат
   поэтому вместе с Instagram в неё попадают Facebook, WhatsApp и Threads.
   Если нужны только домены Instagram, удалите строку `IP-ASN,32934`
   из `rules/instagram.list` и выполните `python3 scripts/validate.py --write`.
-- **`apple-relay.apple.com`** оставлен в AI-категории, как в исходном
-  community-списке.
+- **`apple-relay.apple.com`** оставлен в AI-категории.
 - Категории 2–5 не являются полными списками всех сервисов: это
   upstream-списки blackmatrix7 плюс дополнения. Новые правила добавляйте
   в соответствующий `rules/*.list`, а не в конфиг.
