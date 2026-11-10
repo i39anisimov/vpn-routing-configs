@@ -248,9 +248,6 @@ python3 scripts/validate.py --strict # предупреждения считат
   - `Telegram/Telegram.list` — upstream 2025-09-10;
   - `YouTube/YouTube.list` — upstream 2025-06-06;
   - `Instagram/Instagram.list` — upstream 2025-06-06.
-- [zeklop/shadowrocket-configs](https://github.com/zeklop/shadowrocket-configs) —
-  `REJECT.list`, внешний список рекламы и трекеров; подключается первым
-  правилом с политикой `REJECT`.
 
 Остальные правила ведутся вручную в `rules/*.list`. Списки blackmatrix7
 зафиксированы на 2026-11-10.
