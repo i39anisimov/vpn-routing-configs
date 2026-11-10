@@ -113,6 +113,7 @@ CATEGORIES = (
     Category("ai", 2, "AI", "ai.list"),
     Category("telegram", 3, "Telegram", "telegram.list"),
     Category("youtube", 4, "YouTube", "youtube.list"),
+    Category("instagram", 5, "Instagram", "instagram.list"),
 )
 
 # Ожидаемые политики: что и куда должно ходить в каждом конфиге.
@@ -122,12 +123,14 @@ EXPECTED_POLICIES = {
         "ai": "PROXY",
         "telegram": "PROXY",
         "youtube": "DIRECT",
+        "instagram": "DIRECT",
     },
     "ivn_general.conf": {
         "ru": "DIRECT",
         "ai": "PROXY",
         "telegram": "PROXY",
         "youtube": "PROXY",
+        "instagram": "PROXY",
     },
 }
 
@@ -933,7 +936,7 @@ def render_block(config_name: str, repo: RepoInfo) -> str:
     for cat in CATEGORIES:
         policy = policies[cat.key]
         lines.append("")
-        lines.append(f"# [{cat.number}/4] {cat.title} -> {policy}")
+        lines.append(f"# [{cat.number}/{len(CATEGORIES)}] {cat.title} -> {policy}")
         lines.append(f"RULE-SET,{repo.rules_base}/{cat.filename},{policy}")
     lines.append("")
     lines.append(END_MARK)

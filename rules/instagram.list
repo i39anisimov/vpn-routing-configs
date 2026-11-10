@@ -1,0 +1,15 @@
+# NAME: instagram.list
+# AUTHOR: ivn
+# SOURCE: blackmatrix7/ios_rule_script: rule/Shadowrocket/Instagram/Instagram.list; Meta AS32934 для CDN и медиа Instagram
+# UPSTREAM_UPDATED: Instagram 2025-06-06
+# UPDATED: 2026-11-10
+# CATEGORY: instagram
+# POLICY: назначается конфигом (ivn_home.conf / ivn_general.conf)
+# TOTAL: 5
+# --- blackmatrix7 Instagram ---
+DOMAIN-SUFFIX,cdninstagram.com
+DOMAIN-SUFFIX,instagr.am
+DOMAIN-SUFFIX,instagram.com
+DOMAIN-KEYWORD,instagram
+# --- Meta (Facebook) ASN: CDN и медиа Instagram ---
+IP-ASN,32934,no-resolve

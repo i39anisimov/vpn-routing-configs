@@ -4,11 +4,11 @@
 [misha-tgshv/shadowrocket-configuration-file](https://github.com/misha-tgshv/shadowrocket-configuration-file)
 и актуальных списков
 [blackmatrix7/ios_rule_script](https://github.com/blackmatrix7/ios_rule_script)
-для Telegram, Claude, OpenAI и YouTube. Правила разбиты на четыре категории,
-конфиги проверяются и пересобираются скриптом.
+для Telegram, Claude, OpenAI, YouTube и Instagram. Правила разбиты на пять
+категорий, конфиги проверяются и пересобираются скриптом.
 
 Дата сверки: **2026-11-10**. Версии upstream-списков blackmatrix7:
-Claude/OpenAI/YouTube — 2025-06-06, Telegram — 2025-09-10.
+Claude/OpenAI/YouTube/Instagram — 2025-06-06, Telegram — 2025-09-10.
 
 ## Структура
 
@@ -21,7 +21,8 @@ Claude/OpenAI/YouTube — 2025-06-06, Telegram — 2025-09-10.
 │   ├── ru.list                # категория 1: российские адреса
 │   ├── ai.list                # категория 2: AI-сервисы
 │   ├── telegram.list          # категория 3: Telegram
-│   └── youtube.list           # категория 4: YouTube
+│   ├── youtube.list           # категория 4: YouTube
+│   └── instagram.list         # категория 5: Instagram
 └── scripts/
     └── validate.py            # проверка и пересборка конфигов
 ```
@@ -34,10 +35,11 @@ Claude/OpenAI/YouTube — 2025-06-06, Telegram — 2025-09-10.
 | 2 | `rules/ai.list` | 157 | blackmatrix7 Claude (3) и OpenAI (35), плюс прочие AI-сервисы: Gemini, Copilot, Grok, Perplexity, DeepSeek, Mistral, Hugging Face, Midjourney, ElevenLabs и др. | `PROXY` | `PROXY` |
 | 3 | `rules/telegram.list` | 52 | blackmatrix7 Telegram (40), 6 дополнительных IP-диапазонов zkeen, Telegram-порты голосовых звонков | `PROXY` | `PROXY` |
 | 4 | `rules/youtube.list` | 190 | blackmatrix7 YouTube: домены `youtube.*`, Googlevideo, YT CDN, `USER-AGENT` и IP-диапазоны | `DIRECT` | `PROXY` |
+| 5 | `rules/instagram.list` | 5 | blackmatrix7 Instagram: `instagram.com`, `cdninstagram.com`, `instagr.am`, ключевое слово `instagram`; AS32934 Meta для CDN и медиа | `DIRECT` | `PROXY` |
 | — | `FINAL` | — | всё, что не попало в категории | `DIRECT` | `PROXY` |
 
-Порядок правил в обоих конфигах: **1 → 2 → 3 → 4 → FINAL**. RU-правила идут
-первыми, чтобы российские адреса не перехватывались категориями 2–4.
+Порядок правил в обоих конфигах: **1 → 2 → 3 → 4 → 5 → FINAL**. RU-правила
+идут первыми, чтобы российские адреса не перехватывались категориями 2–5.
 AI-правила идут раньше YouTube — это страховка на случай пересечений
 конкретных AI-доменов с широкими правилами YouTube.
 
@@ -57,9 +59,10 @@ AI-правила идут раньше YouTube — это страховка н
 | `toneywhitez/zkeen_rules/telegram_ips.list` | 3 — Telegram | 6 IP-диапазонов, не покрытых blackmatrix7 |
 | `rules/voice_ports.list` | 3 — Telegram | только Telegram-порты: 3478/3480/3484, 596–599, 1400 |
 | `blackmatrix7/.../YouTube/YouTube.list` | 4 — YouTube | целиком, 190 правил, upstream 2025-06-06 |
+| `blackmatrix7/.../Instagram/Instagram.list` | 5 — Instagram | целиком, 4 правила, upstream 2025-06-06; добавлен `IP-ASN,32934` (Meta) для CDN и медиа |
 | `rules/domains_youtube.list` (misha-tgshv) | — | заменён на актуальный `YouTube.list` от blackmatrix7 |
 | `source/community.list`, раздел `# youtube` | — | заменён на актуальный `YouTube.list` от blackmatrix7 |
-| `rules/domains_discord.list` | — | не входит в четыре категории |
+| `rules/domains_discord.list` | — | не входит в пять категорий |
 | `rules/domains_geo_detect.list` | — | сервисы определения IP/геолокации |
 | `rules/domains_ipchecker.list` | — | чекеры IP |
 | `rules/custom-proxy.list` | — | ручные proxy-исключения (TikTok, Habr) |
@@ -69,29 +72,32 @@ AI-правила идут раньше YouTube — это страховка н
 | `rules/domains_antifilter.list`, `rules/domains_refilter.list` (остальное) | — | общие списки заблокированных ресурсов |
 
 Файлы «—» сознательно **не включены** в категории: это не российские адреса
-и не AI/Telegram/YouTube. В `ivn_home.conf` они ходят напрямую через
+и не AI/Telegram/YouTube/Instagram. В `ivn_home.conf` они ходят напрямую через
 `FINAL,DIRECT`, в `ivn_general.conf` — через прокси через `FINAL,PROXY`.
 
 ## Конфиги
 
-Конфиги не дублируют правила: в `[Rule]` подключены четыре `RULE-SET`-ссылки
+Конфиги не дублируют правила: в `[Rule]` подключены пять `RULE-SET`-ссылок
 на файлы `rules/*.list` в этом репозитории. Блок генерируется скриптом
 из `repo.json`:
 
 ```
 # >>> GENERATED RULES: BEGIN >>>
 
-# [1/4] RU-адреса -> DIRECT
+# [1/5] RU-адреса -> DIRECT
 RULE-SET,https://raw.githubusercontent.com/<owner>/<repo>/main/rules/ru.list,DIRECT
 
-# [2/4] AI -> PROXY
+# [2/5] AI -> PROXY
 RULE-SET,https://raw.githubusercontent.com/<owner>/<repo>/main/rules/ai.list,PROXY
 
-# [3/4] Telegram -> PROXY
+# [3/5] Telegram -> PROXY
 RULE-SET,https://raw.githubusercontent.com/<owner>/<repo>/main/rules/telegram.list,PROXY
 
-# [4/4] YouTube -> DIRECT
+# [4/5] YouTube -> DIRECT
 RULE-SET,https://raw.githubusercontent.com/<owner>/<repo>/main/rules/youtube.list,DIRECT
+
+# [5/5] Instagram -> DIRECT
+RULE-SET,https://raw.githubusercontent.com/<owner>/<repo>/main/rules/instagram.list,DIRECT
 
 # >>> GENERATED RULES: END <<<
 FINAL,DIRECT
@@ -111,6 +117,7 @@ FINAL,DIRECT
 - категория 2 (AI) — `PROXY`
 - категория 3 (Telegram) — `PROXY`
 - категория 4 (YouTube) — `DIRECT`
+- категория 5 (Instagram) — `DIRECT`
 - всё остальное — `DIRECT` (`FINAL,DIRECT`)
 
 ### `ivn_general.conf` — общий режим
@@ -119,6 +126,7 @@ FINAL,DIRECT
 - категория 2 (AI) — `PROXY`
 - категория 3 (Telegram) — `PROXY`
 - категория 4 (YouTube) — `PROXY`
+- категория 5 (Instagram) — `PROXY`
 - всё остальное — `PROXY` (`FINAL,PROXY`)
 
 Остальные настройки `[General]` и `[Proxy Group]` одинаковые и взяты из
@@ -188,7 +196,7 @@ python3 scripts/validate.py --strict # предупреждения считат
 - ровно одно `FINAL`, и оно последнее: `FINAL,DIRECT` для home,
   `FINAL,PROXY` для general;
 - отсутствие правил вне блока `RULE-SET`;
-- ровно четыре `RULE-SET`-ссылки в порядке категорий, с URL из `repo.json`
+- ровно пять `RULE-SET`-ссылок в порядке категорий, с URL из `repo.json`
   и ожидаемыми политиками;
 - `update-url` указывает на raw-URL самого конфига;
 - одинаковость `[General]` и `[Proxy Group]` в двух конфигах
@@ -202,8 +210,8 @@ python3 scripts/validate.py --strict # предупреждения считат
 - Для правила `GEOIP,RU` нужна база **GeoLite2 Country**:
   `Settings → GeoLite2 Database`. Ссылки на mmdb есть в комментариях конфига.
 - Для правил `IP-ASN` нужна база **GeoLite2 ASN** (там же). Это касается
-  5 ASN Telegram и ASN 20473 из OpenAI-списка. Без базы эти правила
-  не сработают, остальные правила продолжат работать.
+  5 ASN Telegram, ASN 20473 из OpenAI-списка и ASN 32934 (Meta/Instagram).
+  Без базы эти правила не сработают, остальные правила продолжат работать.
 - Политика `PROXY` означает выбранный в Shadowrocket сервер/подписку.
 - Импорт: `Config → +` → указать файл или URL конфига.
 
@@ -230,9 +238,13 @@ python3 scripts/validate.py --strict # предупреждения считат
   как single-label суффикс.
 - **YouTube напрямую в `ivn_home.conf`** может работать медленно или
   нестабильно в РФ — это ожидаемое следствие выбранной схемы.
+- **Instagram-категория использует `IP-ASN,32934`** (Meta) для CDN и медиа,
+  поэтому вместе с Instagram в неё попадают Facebook, WhatsApp и Threads.
+  Если нужны только домены Instagram, удалите строку `IP-ASN,32934`
+  из `rules/instagram.list` и выполните `python3 scripts/validate.py --write`.
 - **`apple-relay.apple.com`** оставлен в AI-категории, как в исходном
   community-списке.
-- Категории 2–4 не являются полными списками всех сервисов: это
+- Категории 2–5 не являются полными списками всех сервисов: это
   upstream-списки blackmatrix7 плюс дополнения. Новые правила добавляйте
   в соответствующий `rules/*.list`, а не в конфиг.
 
@@ -243,11 +255,12 @@ python3 scripts/validate.py --strict # предупреждения считат
   `domains_refilter.list`, `voice_ports.list`, `source/community.list`,
   `source/domains.list`, `source/General.txt`.
 - [blackmatrix7/ios_rule_script](https://github.com/blackmatrix7/ios_rule_script),
-  каталог `rule/Shadowrocket` (четыре списка):
+  каталог `rule/Shadowrocket` (пять списков):
   - `Claude/Claude.list` — upstream 2025-06-06;
   - `OpenAI/OpenAI.list` — upstream 2025-06-06;
   - `Telegram/Telegram.list` — upstream 2025-09-10;
-  - `YouTube/YouTube.list` — upstream 2025-06-06.
+  - `YouTube/YouTube.list` — upstream 2025-06-06;
+  - `Instagram/Instagram.list` — upstream 2025-06-06.
 - [toneywhitez/zkeen_rules](https://github.com/toneywhitez/zkeen_rules) —
   `telegram_ips.list`.
 - [MetaCubeX/meta-rules-dat](https://github.com/MetaCubeX/meta-rules-dat) —
