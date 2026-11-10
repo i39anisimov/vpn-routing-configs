@@ -131,6 +131,57 @@ FINAL,DIRECT
 Из этих полей собираются все `RULE-SET`-ссылки и `update-url`. После изменения
 `repo.json` выполните `python3 scripts/validate.py --write`.
 
+## Профили Happ
+
+`happ/happ-home.json` и `happ/happ-general.json` — профили маршрутизации
+клиента Happ, аналогичные двум Shadowrocket-конфигам. Формат описан в
+[документации Happ](https://www.happ.su/main/ru/dev-docs/routing.md): JSON
+в CamelCase, «булевы» значения — строки (`"true"`/`"false"`), списки
+заполняются тегами `geosite:`/`geoip:`. Legacy-ключи `RemoteDns` и
+`DomesticDns` допустимы — они есть в примере экспорта из документации.
+
+Оба профиля используют базы
+[`hydraponique/roscomvpn-geoip`](https://cdn.jsdelivr.net/gh/hydraponique/roscomvpn-geoip@202611101104/release/geoip.dat)
+и
+[`hydraponique/roscomvpn-geosite`](https://cdn.jsdelivr.net/gh/hydraponique/roscomvpn-geosite@202610120948/release/geosite.dat).
+Удалённый DNS — Google DoH (`8.8.8.8`), локальный — Yandex DoH
+(`77.88.8.8`), `DomainStrategy` — `IPIfNonMatch`, `FakeDNS` — `"false"`.
+
+| Профиль | `RouteOrder` | Direct | Proxy |
+|---|---|---|---|
+| `happ-home.json` | `block-direct-proxy` | `private`, `category-ru`, `whitelist`, `microsoft`, `apple`, `epicgames`, `riot`, `escapefromtarkov`, `steam`, `twitch`, `pinterest`, `faceit`, `youtube` + `geoip:private`, `geoip:direct` | `google-play`, `github`, `twitch-ads`, `telegram` |
+| `happ-general.json` | `block-proxy-direct` | то же, без `youtube` | то же + `youtube` |
+
+`BlockSites` в обоих — `win-spy`, `torrent`, `category-ads`.
+
+Особенности:
+
+- `GlobalProxy: "true"` в обоих профилях: всё, что не попало ни в один
+  список, идёт через прокси. Поэтому домашний профиль Happ проксирует
+  неописанный трафик, в отличие от `FINAL,DIRECT` в `shadowrocket_home.conf`.
+- В базе `roscomvpn-geosite` **нет тега `INSTAGRAM`** и AI-тегов (`openai`,
+  `anthropic` и т. п.). Instagram идёт по fallback (через прокси), AI тоже
+  проксируется за счёт `GlobalProxy`. Строки с несуществующими тегами не
+  добавлять: правило молча не срабатывает.
+- Сверка тегов: в базе 24 тега geosite (`APPLE`, `CATEGORY-ADS`,
+  `CATEGORY-GEOBLOCK-RU`, `CATEGORY-RU`, `EPICGAMES`, `ESCAPEFROMTARKOV`,
+  `FACEIT`, `GITHUB`, `GOOGLE-DEEPMIND`, `GOOGLE-PLAY`, `MICROSOFT`, `ORIGIN`,
+  `PINTEREST`, `PRIVATE`, `PUSH`, `RIOT`, `STEAM`, `TELEGRAM`, `TORRENT`,
+  `TWITCH`, `TWITCH-ADS`, `WHITELIST`, `WIN-SPY`, `YOUTUBE`) и три тега geoip
+  (`DIRECT`, `PRIVATE`, `WHITELIST`).
+
+Импорт — ссылкой `happ://routing/onadd/<base64>`, где base64 стандартный
+(с padding) от содержимого JSON-файла. Ссылки опубликованы в `README.md`;
+после изменения профиля их нужно перегенерировать:
+
+```bash
+base64 < happ/happ-home.json | tr -d '\n'
+base64 < happ/happ-general.json | tr -d '\n'
+```
+
+`scripts/validate.py` проверяет только Shadowrocket-конфиги и `rules/*.list`;
+профили Happ он не валидирует.
+
 ## Рабочий процесс
 
 ```bash
