@@ -4,7 +4,7 @@
 # UPSTREAM_UPDATED: Telegram 2025-09-10
 # UPDATED: 2026-11-10
 # CATEGORY: telegram
-# POLICY: назначается конфигом (ivn_home.conf / ivn_general.conf)
+# POLICY: назначается конфигом (shadowrocket_home.conf / shadowrocket_general.conf)
 # TOTAL: 52
 # --- blackmatrix7 Telegram ---
 DOMAIN,api.imem.app

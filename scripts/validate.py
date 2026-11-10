@@ -12,11 +12,11 @@
    - дубликаты внутри файла и конфликты между категориями;
    - обязательные заголовки (# NAME, # SOURCE, # TOTAL и т.д.);
    - кодировка UTF-8, LF, завершающий перевод строки.
-2. ivn_home.conf / ivn_general.conf:
+2. shadowrocket_home.conf / shadowrocket_general.conf:
    - структура секций [General], [Proxy Group], [Rule];
    - известные ключи, булевы значения, DNS/маршруты;
    - корректность правил, политик и proxy-групп;
-   - ровно одно правило FINAL,DIRECT, и оно последнее;
+   - ровно одно правило FINAL с ожидаемой политикой, и оно последнее;
    - встроенный блок правил совпадает с rules/*.list и ожидаемыми политиками.
 
 Использование
@@ -46,7 +46,7 @@ RULES_DIR = ROOT / "rules"
 BEGIN_MARK = "# >>> GENERATED RULES: BEGIN >>>"
 END_MARK = "# >>> GENERATED RULES: END <<<"
 
-CONFIG_NAMES = ("ivn_home.conf", "ivn_general.conf")
+CONFIG_NAMES = ("shadowrocket_home.conf", "shadowrocket_general.conf")
 REPO_FILE = ROOT / "repo.json"
 
 
@@ -118,14 +118,14 @@ CATEGORIES = (
 
 # Ожидаемые политики: что и куда должно ходить в каждом конфиге.
 EXPECTED_POLICIES = {
-    "ivn_home.conf": {
+    "shadowrocket_home.conf": {
         "ru": "DIRECT",
         "ai": "PROXY",
         "telegram": "PROXY",
         "youtube": "DIRECT",
         "instagram": "DIRECT",
     },
-    "ivn_general.conf": {
+    "shadowrocket_general.conf": {
         "ru": "DIRECT",
         "ai": "PROXY",
         "telegram": "PROXY",
@@ -139,8 +139,8 @@ BUILTIN_POLICIES = {"DIRECT", "PROXY", "REJECT", "REJECT-DROP"}
 # Политика FINAL для каждого конфига: home — всё остальное напрямую,
 # general — всё остальное через прокси.
 EXPECTED_FINAL = {
-    "ivn_home.conf": "DIRECT",
-    "ivn_general.conf": "PROXY",
+    "shadowrocket_home.conf": "DIRECT",
+    "shadowrocket_general.conf": "PROXY",
 }
 
 # Типы правил, допустимые в файлах правил (политику задаёт конфиг).

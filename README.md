@@ -14,23 +14,23 @@ Claude/OpenAI/YouTube/Instagram — 2025-06-06, Telegram — 2025-09-10.
 
 ```
 .
-├── ivn_home.conf              # домашний режим
-├── ivn_general.conf           # общий режим
-├── repo.json                  # owner/repo/branch для raw-ссылок
+├── shadowrocket_home.conf      # домашний режим
+├── shadowrocket_general.conf   # общий режим
+├── repo.json                   # owner/repo/branch для raw-ссылок
 ├── rules/
-│   ├── ru.list                # категория 1: российские адреса
-│   ├── ai.list                # категория 2: AI-сервисы
-│   ├── telegram.list          # категория 3: Telegram
-│   ├── youtube.list           # категория 4: YouTube
-│   └── instagram.list         # категория 5: Instagram
+│   ├── ru.list                 # категория 1: российские адреса
+│   ├── ai.list                 # категория 2: AI-сервисы
+│   ├── telegram.list           # категория 3: Telegram
+│   ├── youtube.list            # категория 4: YouTube
+│   └── instagram.list          # категория 5: Instagram
 └── scripts/
-    └── validate.py            # проверка и пересборка конфигов
+    └── validate.py             # проверка и пересборка конфигов
 ```
 
 ## Категории
 
-| № | Файл | Правил | Что входит | `ivn_home.conf` | `ivn_general.conf` |
-|---|------|--------|------------|-----------------|--------------------|
+| № | Файл | Правил | Что входит | `shadowrocket_home.conf` | `shadowrocket_general.conf` |
+|---|---|---|---|---|---|
 | 1 | `rules/ru.list` | 1115 | `GEOIP,RU`, домены российских банков (список ЦБ РФ), `.рф`/`.su`, крупные российские сервисы на не-`.ru` доменах | `DIRECT` | `DIRECT` |
 | 2 | `rules/ai.list` | 157 | blackmatrix7 Claude (3) и OpenAI (35), плюс прочие AI-сервисы: Gemini, Copilot, Grok, Perplexity, DeepSeek, Mistral, Hugging Face, Midjourney, ElevenLabs и др. | `PROXY` | `PROXY` |
 | 3 | `rules/telegram.list` | 52 | blackmatrix7 Telegram (40), 6 дополнительных IP-диапазонов zkeen, Telegram-порты голосовых звонков | `PROXY` | `PROXY` |
@@ -72,8 +72,8 @@ AI-правила идут раньше YouTube — это страховка н
 | `rules/domains_antifilter.list`, `rules/domains_refilter.list` (остальное) | — | общие списки заблокированных ресурсов |
 
 Файлы «—» сознательно **не включены** в категории: это не российские адреса
-и не AI/Telegram/YouTube/Instagram. В `ivn_home.conf` они ходят напрямую через
-`FINAL,DIRECT`, в `ivn_general.conf` — через прокси через `FINAL,PROXY`.
+и не AI/Telegram/YouTube/Instagram. В `shadowrocket_home.conf` они ходят напрямую через
+`FINAL,DIRECT`, в `shadowrocket_general.conf` — через прокси через `FINAL,PROXY`.
 
 ## Конфиги
 
@@ -104,14 +104,14 @@ FINAL,DIRECT
 ```
 
 Внутри маркеров строки руками не редактируют: они пересобираются командой
-`--write` из `repo.json`. В `ivn_general.conf` те же ссылки, но YouTube идёт
+`--write` из `repo.json`. В `shadowrocket_general.conf` те же ссылки, но YouTube идёт
 в `PROXY`, а `FINAL` — `FINAL,PROXY`.
 
 **Репозиторий должен быть публичным**, иначе `raw.githubusercontent.com`
 не отдаст файлы правил без токена. `update-url` в каждом конфиге указывает
 на его собственный raw-URL, поэтому Shadowrocket может обновлять конфиг.
 
-### `ivn_home.conf` — домашний режим
+### `shadowrocket_home.conf` — домашний режим
 
 - категория 1 (RU) — `DIRECT`
 - категория 2 (AI) — `PROXY`
@@ -120,7 +120,7 @@ FINAL,DIRECT
 - категория 5 (Instagram) — `DIRECT`
 - всё остальное — `DIRECT` (`FINAL,DIRECT`)
 
-### `ivn_general.conf` — общий режим
+### `shadowrocket_general.conf` — общий режим
 
 - категория 1 (RU) — `DIRECT`
 - категория 2 (AI) — `PROXY`
@@ -186,7 +186,7 @@ python3 scripts/validate.py --strict # предупреждения считат
 - обязательные заголовки `# NAME:`, `# SOURCE:`, `# CATEGORY:`, `# TOTAL:`;
 - UTF-8 без BOM, переводы строк LF, перевод строки в конце файла.
 
-Конфиги `ivn_home.conf` / `ivn_general.conf`:
+Конфиги `shadowrocket_home.conf` / `shadowrocket_general.conf`:
 
 - структура секций `[General]`, `[Proxy Group]`, `[Rule]`;
 - известные ключи `[General]`, булевы значения, CIDR в `skip-proxy`
@@ -227,7 +227,7 @@ python3 scripts/validate.py --strict # предупреждения считат
   `algolia.net`, `launchdarkly.com`, `statsig.com`, `identrust.com`,
   `featuregates.org`, `observeit.net`, `browser-intake-datadoghq.com`,
   `static.cloudflareinsights.com`. Они попали в AI-категорию, потому что
-  используются ChatGPT. В `ivn_home.conf` они будут ходить через прокси;
+  используются ChatGPT. В `shadowrocket_home.conf` они будут ходить через прокси;
   если это нежелательно, удалите их из `rules/ai.list` и выполните
   `python3 scripts/validate.py --write`.
 - **В Claude-списке** есть `cdn.usefathom.com` (аналитика) — по той же причине
@@ -236,7 +236,7 @@ python3 scripts/validate.py --strict # предупреждения считат
   и YouTube Music. Они срабатывают по User-Agent, а не по DNS.
   `DOMAIN-SUFFIX,youtube` — это gTLD, поэтому он разрешён валидатором
   как single-label суффикс.
-- **YouTube напрямую в `ivn_home.conf`** может работать медленно или
+- **YouTube напрямую в `shadowrocket_home.conf`** может работать медленно или
   нестабильно в РФ — это ожидаемое следствие выбранной схемы.
 - **Instagram-категория использует `IP-ASN,32934`** (Meta) для CDN и медиа,
   поэтому вместе с Instagram в неё попадают Facebook, WhatsApp и Threads.

@@ -4,7 +4,7 @@
 # UPSTREAM_UPDATED: Claude 2025-06-06; OpenAI 2025-06-06
 # UPDATED: 2026-11-10
 # CATEGORY: ai
-# POLICY: назначается конфигом (ivn_home.conf / ivn_general.conf)
+# POLICY: назначается конфигом (shadowrocket_home.conf / shadowrocket_general.conf)
 # TOTAL: 157
 # --- blackmatrix7 Claude ---
 DOMAIN,cdn.usefathom.com
