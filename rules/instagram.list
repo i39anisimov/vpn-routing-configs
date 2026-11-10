@@ -2,7 +2,7 @@
 # AUTHOR: ivn
 # SOURCE: blackmatrix7/ios_rule_script: rule/Shadowrocket/Instagram/Instagram.list; Meta AS32934 для CDN и медиа Instagram
 # UPSTREAM_UPDATED: Instagram 2025-06-06
-# UPDATED: 2026-11-10
+# UPDATED: 2026-11-11
 # CATEGORY: instagram
 # POLICY: назначается конфигом (shadowrocket_home.conf / shadowrocket_general.conf)
 # TOTAL: 5

@@ -2,7 +2,7 @@
 # AUTHOR: ivn
 # SOURCE: blackmatrix7/ios_rule_script: rule/Shadowrocket/YouTube/YouTube.list
 # UPSTREAM_UPDATED: YouTube 2025-06-06
-# UPDATED: 2026-11-10
+# UPDATED: 2026-11-11
 # CATEGORY: youtube
 # POLICY: назначается конфигом (shadowrocket_home.conf / shadowrocket_general.conf)
 # TOTAL: 190

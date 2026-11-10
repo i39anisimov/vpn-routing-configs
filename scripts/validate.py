@@ -16,6 +16,7 @@
    - структура секций [General] и [Rule];
    - известные ключи, булевы значения, DNS/маршруты;
    - корректность правил, политик и (если секция есть) proxy-групп;
+   - ровно один внешний REJECT RULE-SET до блока GENERATED RULES;
    - ровно одно правило FINAL с ожидаемой политикой, и оно последнее;
    - встроенный блок правил совпадает с rules/*.list и ожидаемыми политиками.
 
@@ -142,6 +143,14 @@ EXPECTED_FINAL = {
     "shadowrocket_home.conf": "DIRECT",
     "shadowrocket_general.conf": "PROXY",
 }
+
+# Внешний список блокировки рекламы и трекеров. Подключается до блока
+# GENERATED RULES, чтобы иметь первый приоритет над остальными правилами.
+REJECT_RULESET_URL = (
+    "https://raw.githubusercontent.com/zeklop/shadowrocket-configs/"
+    "refs/heads/main/REJECT.list"
+)
+REJECT_RULESET_RULE = f"RULE-SET,{REJECT_RULESET_URL},REJECT"
 
 # Типы правил, допустимые в файлах правил (политику задаёт конфиг).
 LIST_RULE_TYPES = {
@@ -878,20 +887,45 @@ def validate_config(path: Path, rep: Reporter, groups: set[str] | None = None,
             if begin_idx is None:
                 continue
 
-            # Всё вне блока — только комментарии и один FINAL.
-            outside = section.lines[:begin_idx] + section.lines[end_idx + 1:]
+            # Всё вне блока — комментарии, внешний REJECT RULE-SET до блока
+            # и один FINAL после блока.
+            pre_block = section.lines[:begin_idx]
+            post_block = section.lines[end_idx + 1:]
             finals = []
-            for line_no, raw in outside:
+            reject_lines = []
+            for line_no, raw in pre_block:
                 stripped = raw.strip()
                 if not stripped or stripped.startswith("#"):
                     continue
                 parts = [p.strip() for p in stripped.split(",")]
                 if parts[0].upper() == "FINAL":
                     finals.append((line_no, stripped, parts))
+                elif stripped == REJECT_RULESET_RULE:
+                    reject_lines.append(line_no)
                 else:
                     rep.error(path, line_no,
                               f"правило вне блока rules/*.list: {stripped!r}; "
                               f"добавьте его в соответствующий файл (--write)")
+            for line_no, raw in post_block:
+                stripped = raw.strip()
+                if not stripped or stripped.startswith("#"):
+                    continue
+                parts = [p.strip() for p in stripped.split(",")]
+                if parts[0].upper() == "FINAL":
+                    finals.append((line_no, stripped, parts))
+                elif stripped == REJECT_RULESET_RULE:
+                    rep.error(path, line_no,
+                              "внешний REJECT RULE-SET должен идти до блока "
+                              "GENERATED RULES, чтобы иметь первый приоритет")
+                else:
+                    rep.error(path, line_no,
+                              f"правило вне блока rules/*.list: {stripped!r}; "
+                              f"добавьте его в соответствующий файл (--write)")
+            if len(reject_lines) != 1:
+                rep.error(path, section.line,
+                          f"должен быть ровно один внешний RULE-SET "
+                          f"{REJECT_RULESET_URL} с политикой REJECT до блока "
+                          f"GENERATED RULES (найдено {len(reject_lines)})")
             if len(finals) != 1:
                 rep.error(path, section.line,
                           f"должно быть ровно одно правило FINAL (найдено {len(finals)})")
@@ -902,7 +936,7 @@ def validate_config(path: Path, rep: Reporter, groups: set[str] | None = None,
                     rep.error(path, fin_line,
                               f"ожидается FINAL,{expected_final} для {path.name}")
                 last_rule_line = max(
-                    [ln for ln, raw in outside
+                    [ln for ln, raw in pre_block + post_block
                      if raw.strip() and not raw.strip().startswith("#")],
                     default=None,
                 )

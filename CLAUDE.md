@@ -18,10 +18,12 @@ Claude/OpenAI/YouTube/Instagram — 2025-06-06, Telegram — 2025-09-10.
 | 5 | `rules/instagram.list` | 5 | blackmatrix7 Instagram: `instagram.com`, `cdninstagram.com`, `instagr.am`, ключевое слово `instagram`; AS32934 Meta для CDN и медиа | `DIRECT` | `PROXY` |
 | — | `FINAL` | — | всё, что не попало в категории | `DIRECT` | `PROXY` |
 
-Порядок правил в обоих конфигах: **1 → 2 → 3 → 4 → 5 → FINAL**. RU-правила
-идут первыми, чтобы российские адреса не перехватывались категориями 2–5.
-AI-правила идут раньше YouTube — это страховка на случай пересечений
-конкретных AI-доменов с широкими правилами YouTube.
+Порядок правил в обоих конфигах: **REJECT → 1 → 2 → 3 → 4 → 5 → FINAL**.
+Внешний REJECT-список идёт первым и блокирует рекламу и трекеры раньше всех
+остальных правил. RU-правила идут следующими, чтобы российские адреса не
+перехватывались категориями 2–5. AI-правила идут раньше YouTube — это
+страховка на случай пересечений конкретных AI-доменов с широкими правилами
+YouTube.
 
 ### Состав категорий
 
@@ -35,6 +37,18 @@ AI-правила идут раньше YouTube — это страховка н
 | 4 — YouTube | домены, CDN, `USER-AGENT` и IP-диапазоны YouTube | `blackmatrix7/ios_rule_script` |
 | 5 — Instagram | домены Instagram и `IP-ASN,32934` Meta для CDN и медиа | `blackmatrix7/ios_rule_script` + вручную |
 
+### Внешний REJECT-список
+
+До блока `GENERATED RULES` в обоих конфигах подключён внешний список рекламы
+и трекеров:
+
+```
+RULE-SET,https://raw.githubusercontent.com/zeklop/shadowrocket-configs/refs/heads/main/REJECT.list,REJECT
+```
+
+Он не входит в `rules/` и не считается категорией: политика `REJECT`, первый
+приоритет. Список обновляется на стороне источника, локальная копия не нужна.
+
 Списки заблокированных в РФ ресурсов, Discord, geo-detect, ipchecker и
 custom-proxy в категории не входят: это не российские адреса и не
 AI/Telegram/YouTube/Instagram. В `shadowrocket_home.conf` они ходят напрямую
@@ -43,11 +57,13 @@ AI/Telegram/YouTube/Instagram. В `shadowrocket_home.conf` они ходят н�
 
 ## Конфиги
 
-Конфиги не дублируют правила: в `[Rule]` подключены пять `RULE-SET`-ссылок
-на файлы `rules/*.list` в этом репозитории. Блок генерируется скриптом
-из `repo.json`:
+Конфиги не дублируют правила: в `[Rule]` подключены пять внутренних
+`RULE-SET`-ссылок на файлы `rules/*.list` и один внешний REJECT RULE-SET.
+Блок генерируется скриптом из `repo.json`:
 
 ```
+RULE-SET,https://raw.githubusercontent.com/zeklop/shadowrocket-configs/refs/heads/main/REJECT.list,REJECT
+
 # >>> GENERATED RULES: BEGIN >>>
 
 # [1/5] RU-адреса -> DIRECT
@@ -79,6 +95,7 @@ FINAL,DIRECT
 
 ### `shadowrocket_home.conf` — домашний режим
 
+- внешний REJECT-список — `REJECT` (первый приоритет)
 - категория 1 (RU) — `DIRECT`
 - категория 2 (AI) — `PROXY`
 - категория 3 (Telegram) — `PROXY`
@@ -88,6 +105,7 @@ FINAL,DIRECT
 
 ### `shadowrocket_general.conf` — общий режим
 
+- внешний REJECT-список — `REJECT` (первый приоритет)
 - категория 1 (RU) — `DIRECT`
 - категория 2 (AI) — `PROXY`
 - категория 3 (Telegram) — `PROXY`
@@ -167,9 +185,11 @@ python3 scripts/validate.py --strict # предупреждения считат
 - корректность каждого правила и его политики;
 - ровно одно `FINAL`, и оно последнее: `FINAL,DIRECT` для home,
   `FINAL,PROXY` для general;
-- отсутствие правил вне блока `RULE-SET`;
-- ровно пять `RULE-SET`-ссылок в порядке категорий, с URL из `repo.json`
-  и ожидаемыми политиками;
+- вне блока `GENERATED RULES` допускаются только внешний REJECT RULE-SET
+  (строго до блока) и `FINAL`;
+- ровно пять внутренних `RULE-SET`-ссылок в порядке категорий, с URL
+  из `repo.json` и ожидаемыми политиками, плюс ровно один внешний REJECT
+  RULE-SET до блока;
 - `update-url` указывает на raw-URL самого конфига;
 - одинаковость `[General]` в двух конфигах
   (предупреждение при расхождении).
@@ -228,6 +248,9 @@ python3 scripts/validate.py --strict # предупреждения считат
   - `Telegram/Telegram.list` — upstream 2025-09-10;
   - `YouTube/YouTube.list` — upstream 2025-06-06;
   - `Instagram/Instagram.list` — upstream 2025-06-06.
+- [zeklop/shadowrocket-configs](https://github.com/zeklop/shadowrocket-configs) —
+  `REJECT.list`, внешний список рекламы и трекеров; подключается первым
+  правилом с политикой `REJECT`.
 
 Остальные правила ведутся вручную в `rules/*.list`. Списки blackmatrix7
 зафиксированы на 2026-11-10.
