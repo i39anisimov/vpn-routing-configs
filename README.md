@@ -30,7 +30,7 @@ Claude/OpenAI/YouTube/Instagram — 2025-06-06, Telegram — 2025-09-10.
 
 | № | Файл | Правил | Что входит | `shadowrocket_home.conf` | `shadowrocket_general.conf` |
 |---|---|---|---|---|---|
-| 1 | `rules/ru.list` | 2 | `GEOIP,RU` и `DOMAIN-SUFFIX,ru` — все российские IP и `.ru`-домены | `DIRECT` | `DIRECT` |
+| 1 | `rules/ru.list` | 65 | `GEOIP,RU`, национальные зоны `.ru`/`.su`/`.moscow`/IDN и российские сервисы: Яндекс, VK, маркетплейсы, ритейл, Сбер и др. | `DIRECT` | `DIRECT` |
 | 2 | `rules/ai.list` | 157 | blackmatrix7 Claude (3) и OpenAI (35), плюс прочие AI-сервисы: Gemini, Copilot, Grok, Perplexity, DeepSeek, Mistral, Hugging Face, Midjourney, ElevenLabs и др. | `PROXY` | `PROXY` |
 | 3 | `rules/telegram.list` | 52 | blackmatrix7 Telegram (40), 6 дополнительных IP-диапазонов, Telegram-порты голосовых звонков | `PROXY` | `PROXY` |
 | 4 | `rules/youtube.list` | 190 | blackmatrix7 YouTube: домены `youtube.*`, Googlevideo, YT CDN, `USER-AGENT` и IP-диапазоны | `DIRECT` | `PROXY` |
@@ -46,7 +46,7 @@ AI-правила идут раньше YouTube — это страховка н
 
 | Категория | Что входит | Источник |
 |---|---|---|
-| 1 — RU | `GEOIP,RU` и `DOMAIN-SUFFIX,ru` | вручную |
+| 1 — RU | `GEOIP,RU`, национальные зоны РФ и крупные российские сервисы | вручную |
 | 2 — AI | Claude и OpenAI | `blackmatrix7/ios_rule_script` |
 | 2 — AI | прочие AI-сервисы: Gemini, Copilot, Grok, Perplexity, DeepSeek, Mistral, Hugging Face, Midjourney, ElevenLabs и др. | вручную |
 | 3 — Telegram | домены Telegram | `blackmatrix7/ios_rule_script` |
@@ -162,8 +162,10 @@ python3 scripts/validate.py --strict # предупреждения считат
 - корректность доменов (метки, длина, нижний регистр, IDN/punycode),
   IP/CIDR (включая проверку host-bits), ASN, портов и диапазонов;
 - запрет политик `DIRECT`/`PROXY` внутри `.list` — политику задаёт конфиг;
-- запрет `DOMAIN-SUFFIX` из одного сегмента, кроме `ru`, `su`, `рф`,
-  `xn--p1ai`, `youtube`, и запрет публичных суффиксов вроде `com`/`net`/`io`;
+- запрет `DOMAIN-SUFFIX` из одного сегмента, кроме национальных зон РФ
+  (`ru`, `su`, `moscow`, `xn--p1ai`, `xn--p1acf`, `xn--80adxhks`,
+  `xn--80aswg`, `xn--80asehdb`, `xn--d1acj3b`) и gTLD `youtube`;
+  запрет публичных суффиксов вроде `com`/`net`/`io`;
 - дубликаты внутри файла и одинаковые правила в разных категориях;
 - пересечения доменов между категориями (предупреждение);
 - обязательные заголовки `# NAME:`, `# SOURCE:`, `# CATEGORY:`, `# TOTAL:`;
@@ -200,12 +202,11 @@ python3 scripts/validate.py --strict # предупреждения считат
 
 ## Оговорки
 
-- **`DOMAIN-SUFFIX,ru` стоит в категории 1** и перехватывает все
-  `.ru`-домены раньше остальных категорий. Поэтому `youtube.ru` и
-  заблокированные `.ru`-сайты пойдут в `DIRECT`. Российские адреса также
-  определяются через `GEOIP,RU`. Не-`.ru` домены российских сервисов и
-  банков в списке больше не перечислены: их покрывает `GEOIP,RU`, только
-  если IP находится в РФ.
+- **Категория 1 перехватывает все `.ru`-домены** через `DOMAIN-SUFFIX,ru`
+  раньше остальных категорий, поэтому `youtube.ru` и заблокированные
+  `.ru`-сайты пойдут в `DIRECT`. Дополнительно перечислены национальные
+  зоны РФ (`.su`, `.moscow`, IDN) и не-`.ru` домены крупных российских
+  сервисов; остальные российские адреса покрывает `GEOIP,RU`.
 - **В OpenAI-списке blackmatrix7 есть общие сторонние домены**:
   `stripe.com`, `sentry.io`, `segment.io`, `intercom.io`, `auth0.com`,
   `algolia.net`, `launchdarkly.com`, `statsig.com`, `identrust.com`,

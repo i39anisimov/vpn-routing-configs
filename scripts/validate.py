@@ -163,7 +163,14 @@ IP_RULE_TYPES = {"IP-CIDR", "IP-CIDR6", "IP-ASN"}
 PORT_RULE_TYPES = {"DST-PORT", "SRC-PORT"}
 REGEX_RULE_TYPES = {"URL-REGEX", "DOMAIN-REGEX"}
 
-ALLOWED_TLDS = {"ru", "su", "рф", "xn--p1ai", "youtube"}
+# Национальные зоны РФ и gTLD youtube: для них допустим DOMAIN-SUFFIX
+# из одного сегмента.
+ALLOWED_TLDS = {
+    "ru", "su", "рф", "xn--p1ai",
+    "moscow", "xn--p1acf", "xn--80adxhks", "xn--80aswg",
+    "xn--80asehdb", "xn--d1acj3b",
+    "youtube",
+}
 # Широкие домены, которые осознанно входят в YouTube-категорию.
 # AI-правила идут раньше YouTube, поэтому конкретные AI-домены выигрывают.
 INTENTIONAL_BROAD_DOMAINS = {"googleapis.com", "googleusercontent.com", "gstatic.com"}
