@@ -16,7 +16,8 @@
    - структура секций [General] и [Rule];
    - известные ключи, булевы значения, DNS/маршруты;
    - корректность правил, политик и (если секция есть) proxy-групп;
-   - ровно один внешний REJECT RULE-SET до блока GENERATED RULES;
+   - ровно один REJECT RULE-SET на локальный rules/reject.list до блока
+     GENERATED RULES;
    - ровно одно правило FINAL с ожидаемой политикой, и оно последнее;
    - встроенный блок правил совпадает с rules/*.list и ожидаемыми политиками.
 
@@ -117,6 +118,11 @@ CATEGORIES = (
     Category("instagram", 5, "Instagram", "instagram.list"),
 )
 
+# Список блокировки рекламы и трекеров не входит в нумерованные категории:
+# он подключается отдельным RULE-SET до блока GENERATED RULES, чтобы иметь
+# первый приоритет, но валидируется так же, как остальные списки.
+REJECT_CATEGORY = Category("reject", 0, "Реклама и трекеры", "reject.list")
+
 # Ожидаемые политики: что и куда должно ходить в каждом конфиге.
 EXPECTED_POLICIES = {
     "shadowrocket_home.conf": {
@@ -144,13 +150,16 @@ EXPECTED_FINAL = {
     "shadowrocket_general.conf": "PROXY",
 }
 
-# Внешний список блокировки рекламы и трекеров. Подключается до блока
-# GENERATED RULES, чтобы иметь первый приоритет над остальными правилами.
-REJECT_RULESET_URL = (
-    "https://raw.githubusercontent.com/zeklop/shadowrocket-configs/"
-    "refs/heads/main/REJECT.list"
-)
-REJECT_RULESET_RULE = f"RULE-SET,{REJECT_RULESET_URL},REJECT"
+# Список блокировки рекламы и трекеров подключается до блока GENERATED RULES,
+# чтобы иметь первый приоритет над остальными правилами. URL собирается из
+# repo.json и указывает на локальный rules/reject.list.
+def reject_ruleset_rule(repo: RepoInfo) -> str:
+    return f"RULE-SET,{repo.rules_base}/{REJECT_CATEGORY.filename},REJECT"
+
+
+def is_reject_ruleset(parts: list[str]) -> bool:
+    return (len(parts) == 3 and parts[0].upper() == "RULE-SET"
+            and parts[-1].upper() == "REJECT")
 
 # Типы правил, допустимые в файлах правил (политику задаёт конфиг).
 LIST_RULE_TYPES = {
@@ -611,6 +620,43 @@ def check_duplicates(lists: dict[str, ParsedList], rep: Reporter):
                 )
 
 
+def check_reject_list(reject: ParsedList,
+                      lists: dict[str, ParsedList], rep: Reporter):
+    """Дубликаты внутри reject.list и правила категорий, перекрытые им."""
+    seen: dict[tuple, Rule] = {}
+    for rule in reject.rules:
+        if rule.key in seen:
+            rep.error(reject.category.path, rule.line,
+                      f"дубликат правила {rule.raw!r}; первое вхождение — "
+                      f"строка {seen[rule.key].line}")
+        else:
+            seen[rule.key] = rule
+
+    suffixes = [r for r in reject.rules if r.type == "DOMAIN-SUFFIX"]
+    keywords = [r for r in reject.rules if r.type == "DOMAIN-KEYWORD"]
+    for cat in CATEGORIES:
+        parsed = lists.get(cat.key)
+        if not parsed:
+            continue
+        for rule in parsed.rules:
+            hit = None
+            if rule.type == "DOMAIN-KEYWORD":
+                hit = next((k for k in keywords if k.value == rule.value), None)
+            elif rule.type in ("DOMAIN", "DOMAIN-SUFFIX"):
+                hit = next((s for s in suffixes
+                            if rule.value == s.value
+                            or rule.value.endswith("." + s.value)), None)
+                if hit is None:
+                    hit = next((k for k in keywords
+                                if k.value in rule.value), None)
+            if hit is not None:
+                rep.warning(cat.path, rule.line,
+                            f"правило {rule.raw!r} перекрывается "
+                            f"rules/{REJECT_CATEGORY.filename}:{hit.line} "
+                            f"({hit.raw!r}); REJECT-список идёт первым, "
+                            f"правило не сработает")
+
+
 # --------------------------------------------------------------------------
 # Конфиги
 # --------------------------------------------------------------------------
@@ -887,12 +933,13 @@ def validate_config(path: Path, rep: Reporter, groups: set[str] | None = None,
             if begin_idx is None:
                 continue
 
-            # Всё вне блока — комментарии, внешний REJECT RULE-SET до блока
+            # Всё вне блока — комментарии, REJECT RULE-SET до блока
             # и один FINAL после блока.
             pre_block = section.lines[:begin_idx]
             post_block = section.lines[end_idx + 1:]
             finals = []
             reject_lines = []
+            expected_reject = reject_ruleset_rule(repo) if repo is not None else None
             for line_no, raw in pre_block:
                 stripped = raw.strip()
                 if not stripped or stripped.startswith("#"):
@@ -900,8 +947,14 @@ def validate_config(path: Path, rep: Reporter, groups: set[str] | None = None,
                 parts = [p.strip() for p in stripped.split(",")]
                 if parts[0].upper() == "FINAL":
                     finals.append((line_no, stripped, parts))
-                elif stripped == REJECT_RULESET_RULE:
+                elif is_reject_ruleset(parts):
                     reject_lines.append(line_no)
+                    if expected_reject is not None and stripped != expected_reject:
+                        rep.error(path, line_no,
+                                  f"REJECT RULE-SET должен ссылаться на "
+                                  f"локальный список rules/"
+                                  f"{REJECT_CATEGORY.filename}: ожидается "
+                                  f"{expected_reject!r}")
                 else:
                     rep.error(path, line_no,
                               f"правило вне блока rules/*.list: {stripped!r}; "
@@ -913,19 +966,22 @@ def validate_config(path: Path, rep: Reporter, groups: set[str] | None = None,
                 parts = [p.strip() for p in stripped.split(",")]
                 if parts[0].upper() == "FINAL":
                     finals.append((line_no, stripped, parts))
-                elif stripped == REJECT_RULESET_RULE:
+                elif is_reject_ruleset(parts):
                     rep.error(path, line_no,
-                              "внешний REJECT RULE-SET должен идти до блока "
+                              "REJECT RULE-SET должен идти до блока "
                               "GENERATED RULES, чтобы иметь первый приоритет")
                 else:
                     rep.error(path, line_no,
                               f"правило вне блока rules/*.list: {stripped!r}; "
                               f"добавьте его в соответствующий файл (--write)")
             if len(reject_lines) != 1:
+                expected_url = (expected_reject.split(",")[1]
+                                if expected_reject else
+                                f"<raw-URL>/rules/{REJECT_CATEGORY.filename}")
                 rep.error(path, section.line,
-                          f"должен быть ровно один внешний RULE-SET "
-                          f"{REJECT_RULESET_URL} с политикой REJECT до блока "
-                          f"GENERATED RULES (найдено {len(reject_lines)})")
+                          f"должен быть ровно один RULE-SET {expected_url} "
+                          f"с политикой REJECT до блока GENERATED RULES "
+                          f"(найдено {len(reject_lines)})")
             if len(finals) != 1:
                 rep.error(path, section.line,
                           f"должно быть ровно одно правило FINAL (найдено {len(finals)})")
@@ -1081,7 +1137,7 @@ def main(argv=None) -> int:
         print(f"ERROR: каталог правил не найден: {RULES_DIR}", file=sys.stderr)
         return 2
 
-    known_files = {c.filename for c in CATEGORIES}
+    known_files = {c.filename for c in CATEGORIES} | {REJECT_CATEGORY.filename}
     for path in sorted(RULES_DIR.glob("*.list")):
         if path.name not in known_files:
             rep.warning(path, None,
@@ -1089,6 +1145,10 @@ def main(argv=None) -> int:
 
     parsed_lists: dict[str, ParsedList] = {}
     print("Проверка списков правил:")
+    reject_parsed = parse_list(REJECT_CATEGORY, rep, fix_metadata=args.write)
+    if reject_parsed is not None:
+        print(f"  rules/{REJECT_CATEGORY.filename:<15} "
+              f"{len(reject_parsed.rules):>5} правил")
     for cat in CATEGORIES:
         parsed = parse_list(cat, rep, fix_metadata=args.write)
         if parsed is not None:
@@ -1096,13 +1156,15 @@ def main(argv=None) -> int:
             print(f"  rules/{cat.filename:<15} {len(parsed.rules):>5} правил")
 
     check_duplicates(parsed_lists, rep)
+    if reject_parsed is not None:
+        check_reject_list(reject_parsed, parsed_lists, rep)
     repo = load_repo_info(rep)
 
     print("Проверка конфигов:")
     configs: dict[str, dict] = {}
     for name in CONFIG_NAMES:
         path = ROOT / name
-        result = validate_config(path, rep, check_sync=False)
+        result = validate_config(path, rep, check_sync=False, repo=repo)
         if result is not None:
             configs[name] = result
 
@@ -1143,6 +1205,8 @@ def main(argv=None) -> int:
             rep.error(REPO_FILE, None,
                       "запись отменена: сначала заполните repo.json")
         else:
+            if reject_parsed is not None and update_list_metadata(reject_parsed):
+                print(f"  обновлён заголовок rules/{REJECT_CATEGORY.filename}")
             for parsed in parsed_lists.values():
                 if update_list_metadata(parsed):
                     print(f"  обновлён заголовок rules/{parsed.category.filename}")

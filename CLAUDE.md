@@ -4,8 +4,10 @@
 конфигов, порядок проверки и ограничения. Общее описание и структура проекта —
 в `README.md`.
 
-Дата сверки: **2026-11-10**. Версии upstream-списков blackmatrix7:
+Дата сверки: **2026-11-11**. Версии upstream-списков blackmatrix7:
 Claude/OpenAI/YouTube/Instagram — 2025-06-06, Telegram — 2025-09-10.
+`rules/reject.list` — снапшот `zeklop/shadowrocket-configs: REJECT.list`
+от 2026-11-11.
 
 ## Категории
 
@@ -19,9 +21,9 @@ Claude/OpenAI/YouTube/Instagram — 2025-06-06, Telegram — 2025-09-10.
 | — | `FINAL` | — | всё, что не попало в категории | `DIRECT` | `PROXY` |
 
 Порядок правил в обоих конфигах: **REJECT → 1 → 2 → 3 → 4 → 5 → FINAL**.
-Внешний REJECT-список идёт первым и блокирует рекламу и трекеры раньше всех
-остальных правил. RU-правила идут следующими, чтобы российские адреса не
-перехватывались категориями 2–5. AI-правила идут раньше YouTube — это
+REJECT-список (`rules/reject.list`) идёт первым и блокирует рекламу и трекеры
+раньше всех остальных правил. RU-правила идут следующими, чтобы российские
+адреса не перехватывались категориями 2–5. AI-правила идут раньше YouTube — это
 страховка на случай пересечений конкретных AI-доменов с широкими правилами
 YouTube.
 
@@ -37,17 +39,22 @@ YouTube.
 | 4 — YouTube | домены, CDN, `USER-AGENT` и IP-диапазоны YouTube | `blackmatrix7/ios_rule_script` |
 | 5 — Instagram | домены Instagram и `IP-ASN,32934` Meta для CDN и медиа | `blackmatrix7/ios_rule_script` + вручную |
 
-### Внешний REJECT-список
+### REJECT-список
 
-До блока `GENERATED RULES` в обоих конфигах подключён внешний список рекламы
-и трекеров:
+До блока `GENERATED RULES` в обоих конфигах подключён список рекламы
+и трекеров `rules/reject.list` (66 правил):
 
 ```
-RULE-SET,https://raw.githubusercontent.com/zeklop/shadowrocket-configs/refs/heads/main/REJECT.list,REJECT
+RULE-SET,https://raw.githubusercontent.com/<owner>/<repo>/main/rules/reject.list,REJECT
 ```
 
-Он не входит в `rules/` и не считается категорией: политика `REJECT`, первый
-приоритет. Список обновляется на стороне источника, локальная копия не нужна.
+Он не входит в нумерованные категории и не генерируется скриптом: политика
+`REJECT`, первый приоритет, строку в конфиге правят вручную. Список — это
+снапшот внешнего `zeklop/shadowrocket-configs: REJECT.list` от 2026-11-11,
+скопированный в репозиторий; обновляется вручную из источника. Валидатор
+проверяет его так же, как остальные списки (синтаксис, заголовки, дубликаты
+внутри файла) и предупреждает, если правило из другой категории перекрыто
+REJECT-правилом — такие правила не сработают, потому что REJECT идёт первым.
 
 Списки заблокированных в РФ ресурсов, Discord, geo-detect, ipchecker и
 custom-proxy в категории не входят: это не российские адреса и не
@@ -58,11 +65,11 @@ AI/Telegram/YouTube/Instagram. В `shadowrocket_home.conf` они ходят н�
 ## Конфиги
 
 Конфиги не дублируют правила: в `[Rule]` подключены пять внутренних
-`RULE-SET`-ссылок на файлы `rules/*.list` и один внешний REJECT RULE-SET.
-Блок генерируется скриптом из `repo.json`:
+`RULE-SET`-ссылок на файлы `rules/*.list` и один REJECT RULE-SET на
+`rules/reject.list`. Блок генерируется скриптом из `repo.json`:
 
 ```
-RULE-SET,https://raw.githubusercontent.com/zeklop/shadowrocket-configs/refs/heads/main/REJECT.list,REJECT
+RULE-SET,https://raw.githubusercontent.com/<owner>/<repo>/main/rules/reject.list,REJECT
 
 # >>> GENERATED RULES: BEGIN >>>
 
@@ -95,7 +102,7 @@ FINAL,DIRECT
 
 ### `shadowrocket_home.conf` — домашний режим
 
-- внешний REJECT-список — `REJECT` (первый приоритет)
+- REJECT-список (`rules/reject.list`) — `REJECT` (первый приоритет)
 - категория 1 (RU) — `DIRECT`
 - категория 2 (AI) — `PROXY`
 - категория 3 (Telegram) — `PROXY`
@@ -105,7 +112,7 @@ FINAL,DIRECT
 
 ### `shadowrocket_general.conf` — общий режим
 
-- внешний REJECT-список — `REJECT` (первый приоритет)
+- REJECT-список (`rules/reject.list`) — `REJECT` (первый приоритет)
 - категория 1 (RU) — `DIRECT`
 - категория 2 (AI) — `PROXY`
 - категория 3 (Telegram) — `PROXY`
@@ -224,6 +231,8 @@ python3 scripts/validate.py --strict # предупреждения считат
   запрет публичных суффиксов вроде `com`/`net`/`io`;
 - дубликаты внутри файла и одинаковые правила в разных категориях;
 - пересечения доменов между категориями (предупреждение);
+- правила категорий, перекрытые `rules/reject.list` (предупреждение: они
+  не сработают, потому что REJECT-список подключается первым);
 - обязательные заголовки `# NAME:`, `# SOURCE:`, `# CATEGORY:`, `# TOTAL:`;
 - UTF-8 без BOM, переводы строк LF, перевод строки в конце файла.
 
@@ -236,11 +245,11 @@ python3 scripts/validate.py --strict # предупреждения считат
 - корректность каждого правила и его политики;
 - ровно одно `FINAL`, и оно последнее: `FINAL,DIRECT` для home,
   `FINAL,PROXY` для general;
-- вне блока `GENERATED RULES` допускаются только внешний REJECT RULE-SET
-  (строго до блока) и `FINAL`;
+- вне блока `GENERATED RULES` допускаются только REJECT RULE-SET
+  на `rules/reject.list` (строго до блока) и `FINAL`;
 - ровно пять внутренних `RULE-SET`-ссылок в порядке категорий, с URL
-  из `repo.json` и ожидаемыми политиками, плюс ровно один внешний REJECT
-  RULE-SET до блока;
+  из `repo.json` и ожидаемыми политиками, плюс ровно один REJECT
+  RULE-SET на локальный `rules/reject.list` до блока;
 - `update-url` указывает на raw-URL самого конфига;
 - одинаковость `[General]` в двух конфигах
   (предупреждение при расхождении).
@@ -266,13 +275,17 @@ python3 scripts/validate.py --strict # предупреждения считат
   зоны РФ (`.su`, `.moscow`, IDN) и не-`.ru` домены крупных российских
   сервисов; остальные российские адреса покрывает `GEOIP,RU`.
 - **В OpenAI-списке blackmatrix7 есть общие сторонние домены**:
-  `stripe.com`, `sentry.io`, `segment.io`, `intercom.io`, `auth0.com`,
-  `algolia.net`, `launchdarkly.com`, `statsig.com`, `identrust.com`,
-  `featuregates.org`, `observeit.net`, `browser-intake-datadoghq.com`,
-  `static.cloudflareinsights.com`. Они попали в AI-категорию, потому что
-  используются ChatGPT. В `shadowrocket_home.conf` они будут ходить через
-  прокси; если это нежелательно, удалите их из `rules/ai.list` и выполните
+  `stripe.com`, `sentry.io`, `intercom.io`, `auth0.com`, `algolia.net`,
+  `launchdarkly.com`, `statsig.com`, `identrust.com`, `featuregates.org`,
+  `observeit.net`. Они попали в AI-категорию, потому что используются
+  ChatGPT. В `shadowrocket_home.conf` они будут ходить через прокси; если это
+  нежелательно, удалите их из `rules/ai.list` и выполните
   `python3 scripts/validate.py --write`.
+- **Три домена из OpenAI-списка перенесены в REJECT**: `segment.io`,
+  `browser-intake-datadoghq.com` и `static.cloudflareinsights.com` есть
+  в `rules/reject.list`, а он подключается первым, поэтому в `rules/ai.list`
+  эти правила были мёртвыми и удалены. Поведение не изменилось: REJECT-список
+  и раньше блокировал эти запросы первым.
 - **В Claude-списке** есть `cdn.usefathom.com` (аналитика) — по той же причине
   он тоже попал в AI-категорию.
 - **YouTube-список содержит `USER-AGENT`-правила** для приложений YouTube
