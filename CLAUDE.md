@@ -20,12 +20,13 @@ Claude/OpenAI/YouTube/Instagram — 2025-06-06, Telegram — 2025-09-10.
 | 5 | `rules/instagram.list` | 5 | blackmatrix7 Instagram: `instagram.com`, `cdninstagram.com`, `instagr.am`, ключевое слово `instagram`; AS32934 Meta для CDN и медиа | `DIRECT` | `PROXY` |
 | — | `FINAL` | — | всё, что не попало в категории | `DIRECT` | `PROXY` |
 
-Порядок правил в обоих конфигах: **REJECT → 1 → 2 → 3 → 4 → 5 → FINAL**.
+Порядок правил в текущих конфигах: **REJECT → 1 → 4 → 5 → 2 → 3 → FINAL**.
 REJECT-список (`rules/reject.list`) идёт первым и блокирует рекламу и трекеры
 раньше всех остальных правил. RU-правила идут следующими, чтобы российские
-адреса не перехватывались категориями 2–5. AI-правила идут раньше YouTube — это
-страховка на случай пересечений конкретных AI-доменов с широкими правилами
-YouTube.
+адреса не перехватывались остальными категориями. Порядок категорий 1–5
+валидатор не фиксирует: он проверяет, что REJECT стоит первым, `FINAL` —
+последним, а все пять ссылок на `rules/*.list` присутствуют по одному разу
+с ожидаемыми политиками.
 
 ### Состав категорий
 
@@ -41,7 +42,7 @@ YouTube.
 
 ### REJECT-список
 
-До блока `GENERATED RULES` в обоих конфигах подключён список рекламы
+Первым правилом секции `[Rule]` в обоих конфигах подключён список рекламы
 и трекеров `rules/reject.list` (66 правил):
 
 ```
@@ -66,7 +67,8 @@ AI/Telegram/YouTube/Instagram. В `shadowrocket_home.conf` они ходят н�
 
 Конфиги не дублируют правила: в `[Rule]` подключены пять внутренних
 `RULE-SET`-ссылок на файлы `rules/*.list` и один REJECT RULE-SET на
-`rules/reject.list`. Блок генерируется скриптом из `repo.json`:
+`rules/reject.list`. Если используется блок `GENERATED RULES`, он
+генерируется скриптом из `repo.json`:
 
 ```
 RULE-SET,https://raw.githubusercontent.com/<owner>/<repo>/main/rules/reject.list,REJECT
@@ -92,9 +94,12 @@ RULE-SET,https://raw.githubusercontent.com/<owner>/<repo>/main/rules/instagram.l
 FINAL,DIRECT
 ```
 
-Внутри маркеров строки руками не редактируют: они пересобираются командой
-`--write` из `repo.json`. В `shadowrocket_general.conf` те же ссылки, но YouTube
-идёт в `PROXY`, а `FINAL` — `FINAL,PROXY`.
+Блок `GENERATED RULES` **опционален**: текущие конфиги хранят пять
+`RULE-SET`-строк прямо в `[Rule]` без маркеров. Если маркеры есть, строки
+внутри них руками не редактируют — они пересобираются командой `--write`
+из `repo.json`. Если маркеров нет, `--write` секцию `[Rule]` не трогает
+и обновляет только `update-url`. В `shadowrocket_general.conf` те же ссылки,
+но YouTube и Instagram идут в `PROXY`, а `FINAL` — `FINAL,PROXY`.
 
 **Репозиторий должен быть публичным**, иначе `raw.githubusercontent.com`
 не отдаст файлы правил без токена. `update-url` в каждом конфиге указывает
@@ -208,8 +213,9 @@ python3 scripts/validate.py --strict # предупреждения считат
 5. В Shadowrocket обновить конфиг или дождаться обновления `RULE-SET`.
 
 `--write` обновляет `# TOTAL:` и `# UPDATED:` в заголовках списков, а также
-пересобирает блоки `RULE-SET` и `update-url` в обоих конфигах из `repo.json`.
-Если в правилах есть ошибка, запись не выполняется.
+`update-url` в обоих конфигах. Блок `RULE-SET` внутри маркеров
+`GENERATED RULES` пересобирается только если маркеры есть; конфиг без
+маркеров правится вручную. Если в правилах есть ошибка, запись не выполняется.
 
 Не редактировать строки внутри маркеров
 `# >>> GENERATED RULES: BEGIN >>>` / `END` — они перезаписываются. Новые
@@ -239,17 +245,18 @@ python3 scripts/validate.py --strict # предупреждения считат
 Конфиги `shadowrocket_home.conf` / `shadowrocket_general.conf`:
 
 - структура секций `[General]` и `[Rule]`; секция `[Proxy Group]` опциональна;
-- известные ключи `[General]`, булевы значения, CIDR в `skip-proxy`
-  и `tun-excluded-routes`, существование файлов из `include`;
+- известные ключи `[General]`, булевы значения, CIDR в `skip-proxy`,
+  `bypass-tun` и `tun-excluded-routes`, существование файлов из `include`;
 - корректность proxy-групп (если секция есть) и регулярных выражений;
 - корректность каждого правила и его политики;
 - ровно одно `FINAL`, и оно последнее: `FINAL,DIRECT` для home,
   `FINAL,PROXY` для general;
-- вне блока `GENERATED RULES` допускаются только REJECT RULE-SET
-  на `rules/reject.list` (строго до блока) и `FINAL`;
-- ровно пять внутренних `RULE-SET`-ссылок в порядке категорий, с URL
-  из `repo.json` и ожидаемыми политиками, плюс ровно один REJECT
-  RULE-SET на локальный `rules/reject.list` до блока;
+- REJECT RULE-SET на `rules/reject.list` ровно один и стоит первым правилом;
+- ровно пять внутренних `RULE-SET`-ссылок с URL из `repo.json` и ожидаемыми
+  политиками (порядок категорий не фиксируется). Остальные правила
+  в `[Rule]` запрещены — их место в `rules/*.list`;
+- если маркеры `GENERATED RULES` присутствуют, REJECT и `FINAL` должны быть
+  вне блока, а ссылки на `rules/*.list` — внутри;
 - `update-url` указывает на raw-URL самого конфига;
 - одинаковость `[General]` в двух конфигах
   (предупреждение при расхождении).

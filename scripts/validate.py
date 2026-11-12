@@ -16,10 +16,12 @@
    - структура секций [General] и [Rule];
    - известные ключи, булевы значения, DNS/маршруты;
    - корректность правил, политик и (если секция есть) proxy-групп;
-   - ровно один REJECT RULE-SET на локальный rules/reject.list до блока
-     GENERATED RULES;
+   - ровно один REJECT RULE-SET на локальный rules/reject.list, он же первое
+     правило секции [Rule];
    - ровно одно правило FINAL с ожидаемой политикой, и оно последнее;
-   - встроенный блок правил совпадает с rules/*.list и ожидаемыми политиками.
+   - пять RULE-SET на rules/*.list присутствуют по одному разу и совпадают
+     с ожидаемыми политиками. Блок GENERATED RULES опционален: если маркеры
+     есть, --write пересобирает блок, если их нет — [Rule] не переписывается.
 
 Использование
 -------------
@@ -203,8 +205,9 @@ PUBLIC_SUFFIXES = {
 KNOWN_GENERAL_KEYS = {
     "ipv6", "prefer-ipv6", "private-ip-answer", "dns-direct-system",
     "dns-fallback-system", "dns-direct-fallback-proxy", "dns-server",
-    "fallback-dns-server", "hijack-dns", "skip-proxy", "tun-excluded-routes",
-    "tun-included-routes", "always-real-ip", "icmp-auto-reply",
+    "fallback-dns-server", "hijack-dns", "skip-proxy", "bypass-tun",
+    "bypass-tun6", "tun-excluded-routes", "tun-included-routes",
+    "always-real-ip", "icmp-auto-reply",
     "always-reject-url-rewrite", "udp-policy-not-supported-behaviour",
     "include", "update-url", "bypass-system", "geoip-maxmind-url",
     "asn-maxmind-url", "geoip-maxmind-url6", "dns-server-fallback",
@@ -804,7 +807,8 @@ def parse_general(section: Section, path: Path, rep: Reporter) -> dict[str, str]
                 rep.error(path, line_no, f"include указывает на отсутствующий файл: {value!r}")
         if key == "update-url" and not re.match(r"^https?://", value):
             rep.error(path, line_no, f"update-url должен быть http(s)-URL: {value!r}")
-        if key in ("skip-proxy", "tun-excluded-routes", "tun-included-routes",
+        if key in ("skip-proxy", "bypass-tun", "bypass-tun6",
+                   "tun-excluded-routes", "tun-included-routes",
                    "always-real-ip"):
             for item in [x.strip() for x in value.split(",") if x.strip()]:
                 if "/" in item and not item.startswith("*"):
@@ -870,25 +874,36 @@ def parse_proxy_groups(section: Section, path: Path, rep: Reporter) -> set[str]:
     return groups
 
 
-def extract_block(section: Section, path: Path, rep: Reporter):
-    begin_idx = end_idx = None
-    for idx, (line_no, raw) in enumerate(section.lines):
-        if raw.strip() == BEGIN_MARK:
-            if begin_idx is not None:
-                rep.error(path, line_no, "повторяющийся BEGIN-маркер блока правил")
-            begin_idx = idx
-        elif raw.strip() == END_MARK:
-            if end_idx is not None:
-                rep.error(path, line_no, "повторяющийся END-маркер блока правил")
-            end_idx = idx
-    if begin_idx is None or end_idx is None:
+def find_block(section: Section, path: Path, rep: Reporter):
+    """Индексы BEGIN/END-маркеров блока правил или None, если маркеров нет.
+
+    Блок GENERATED RULES опционален: конфиг может держать все RULE-SET
+    в [Rule] вручную.
+    """
+    begins = [idx for idx, (_, raw) in enumerate(section.lines)
+              if raw.strip() == BEGIN_MARK]
+    ends = [idx for idx, (_, raw) in enumerate(section.lines)
+            if raw.strip() == END_MARK]
+    if not begins and not ends:
+        return None
+    if len(begins) > 1:
+        rep.error(path, section.lines[begins[1]][0],
+                  "повторяющийся BEGIN-маркер блока правил")
+        return None
+    if len(ends) > 1:
+        rep.error(path, section.lines[ends[1]][0],
+                  "повторяющийся END-маркер блока правил")
+        return None
+    if not begins or not ends:
         rep.error(path, section.line,
-                  f"не найдены маркеры блока правил:\n  {BEGIN_MARK}\n  {END_MARK}")
-        return None, None
-    if begin_idx > end_idx:
-        rep.error(path, section.line, "BEGIN-маркер находится после END-маркера")
-        return None, None
-    return begin_idx, end_idx
+                  "маркеры блока правил должны встречаться парой "
+                  f"({BEGIN_MARK} / {END_MARK}) или отсутствовать")
+        return None
+    if begins[0] > ends[0]:
+        rep.error(path, section.lines[begins[0]][0],
+                  "BEGIN-маркер находится после END-маркера")
+        return None
+    return begins[0], ends[0]
 
 
 def validate_config(path: Path, rep: Reporter, groups: set[str] | None = None,
@@ -918,7 +933,8 @@ def validate_config(path: Path, rep: Reporter, groups: set[str] | None = None,
     if "Rule" in names and names[-1] != "Rule":
         rep.error(path, sections[-1].line, "секция [Rule] должна быть последней")
 
-    result = {"path": path, "general": {}, "groups": set(), "rules": []}
+    result = {"path": path, "general": {}, "groups": set(),
+              "category_rules": []}
 
     for section in sections:
         if section.name == "General":
@@ -929,82 +945,99 @@ def validate_config(path: Path, rep: Reporter, groups: set[str] | None = None,
                 groups.update(result["groups"])
         elif section.name == "Rule":
             local_groups = set(result["groups"]) | (groups or set())
-            begin_idx, end_idx = extract_block(section, path, rep)
-            if begin_idx is None:
-                continue
+            span = find_block(section, path, rep)
+            inside_lines: set[int] = set()
+            if span is not None:
+                begin_idx, end_idx = span
+                inside_lines = {ln for ln, _ in
+                                section.lines[begin_idx + 1:end_idx]}
 
-            # Всё вне блока — комментарии, REJECT RULE-SET до блока
-            # и один FINAL после блока.
-            pre_block = section.lines[:begin_idx]
-            post_block = section.lines[end_idx + 1:]
-            finals = []
-            reject_lines = []
-            expected_reject = reject_ruleset_rule(repo) if repo is not None else None
-            for line_no, raw in pre_block:
-                stripped = raw.strip()
-                if not stripped or stripped.startswith("#"):
+            expected_reject_url = (
+                reject_ruleset_rule(repo).split(",")[1]
+                if repo is not None else
+                f"<raw-URL>/rules/{REJECT_CATEGORY.filename}"
+            )
+            category_by_url = (
+                {f"{repo.rules_base}/{cat.filename}": cat for cat in CATEGORIES}
+                if repo is not None else {}
+            )
+
+            parsed_rules: list[Rule] = []
+            for line_no, raw in section.lines:
+                rule = parse_rule_line(raw, line_no, path, rep, local_groups)
+                if rule is not None:
+                    parsed_rules.append(rule)
+
+            finals: list[Rule] = []
+            rejects: list[Rule] = []
+            category_rules: list[tuple[Category, Rule]] = []
+            for rule in parsed_rules:
+                inside = rule.line in inside_lines
+                if rule.type == "FINAL":
+                    finals.append(rule)
+                    if inside:
+                        rep.error(path, rule.line,
+                                  "FINAL не должен находиться внутри блока "
+                                  "GENERATED RULES: --write его перезапишет")
                     continue
-                parts = [p.strip() for p in stripped.split(",")]
-                if parts[0].upper() == "FINAL":
-                    finals.append((line_no, stripped, parts))
-                elif is_reject_ruleset(parts):
-                    reject_lines.append(line_no)
-                    if expected_reject is not None and stripped != expected_reject:
-                        rep.error(path, line_no,
+                parts = [p.strip() for p in rule.raw.split(",")]
+                if rule.type == "RULE-SET" and is_reject_ruleset(parts):
+                    rejects.append(rule)
+                    if inside:
+                        rep.error(path, rule.line,
+                                  "REJECT RULE-SET должен идти до блока "
+                                  "GENERATED RULES, чтобы иметь первый приоритет")
+                    if rule.value != expected_reject_url:
+                        rep.error(path, rule.line,
                                   f"REJECT RULE-SET должен ссылаться на "
                                   f"локальный список rules/"
                                   f"{REJECT_CATEGORY.filename}: ожидается "
-                                  f"{expected_reject!r}")
-                else:
-                    rep.error(path, line_no,
-                              f"правило вне блока rules/*.list: {stripped!r}; "
-                              f"добавьте его в соответствующий файл (--write)")
-            for line_no, raw in post_block:
-                stripped = raw.strip()
-                if not stripped or stripped.startswith("#"):
+                                  f"{expected_reject_url!r}")
                     continue
-                parts = [p.strip() for p in stripped.split(",")]
-                if parts[0].upper() == "FINAL":
-                    finals.append((line_no, stripped, parts))
-                elif is_reject_ruleset(parts):
-                    rep.error(path, line_no,
-                              "REJECT RULE-SET должен идти до блока "
-                              "GENERATED RULES, чтобы иметь первый приоритет")
-                else:
-                    rep.error(path, line_no,
-                              f"правило вне блока rules/*.list: {stripped!r}; "
-                              f"добавьте его в соответствующий файл (--write)")
-            if len(reject_lines) != 1:
-                expected_url = (expected_reject.split(",")[1]
-                                if expected_reject else
-                                f"<raw-URL>/rules/{REJECT_CATEGORY.filename}")
+                if rule.type in ("RULE-SET", "DOMAIN-SET"):
+                    cat = category_by_url.get(rule.value)
+                    if cat is None:
+                        rep.error(path, rule.line,
+                                  f"неизвестный {rule.type}: {rule.raw!r}; "
+                                  f"допустимы только rules/*.list из repo.json")
+                    else:
+                        category_rules.append((cat, rule))
+                        if span is not None and not inside:
+                            rep.error(path, rule.line,
+                                      f"правило вне блока GENERATED RULES: "
+                                      f"{rule.raw!r}; добавьте его в "
+                                      f"соответствующий rules/*.list (--write)")
+                    continue
+                rep.error(path, rule.line,
+                          f"правило вне rules/*.list: {rule.raw!r}; "
+                          f"добавьте его в соответствующий файл (--write)")
+
+            if len(rejects) != 1:
                 rep.error(path, section.line,
-                          f"должен быть ровно один RULE-SET {expected_url} "
-                          f"с политикой REJECT до блока GENERATED RULES "
-                          f"(найдено {len(reject_lines)})")
+                          f"должен быть ровно один RULE-SET "
+                          f"{expected_reject_url} с политикой REJECT "
+                          f"(найдено {len(rejects)})")
+            elif parsed_rules and rejects[0] is not parsed_rules[0]:
+                rep.error(path, rejects[0].line,
+                          "REJECT RULE-SET должен быть первым правилом "
+                          "секции [Rule]")
+
             if len(finals) != 1:
                 rep.error(path, section.line,
-                          f"должно быть ровно одно правило FINAL (найдено {len(finals)})")
+                          f"должно быть ровно одно правило FINAL "
+                          f"(найдено {len(finals)})")
             else:
-                fin_line, fin_raw, fin_parts = finals[0]
+                fin = finals[0]
+                fin_parts = [p.strip() for p in fin.raw.split(",")]
                 expected_final = EXPECTED_FINAL.get(path.name, "DIRECT")
                 if len(fin_parts) != 2 or fin_parts[1].upper() != expected_final:
-                    rep.error(path, fin_line,
+                    rep.error(path, fin.line,
                               f"ожидается FINAL,{expected_final} для {path.name}")
-                last_rule_line = max(
-                    [ln for ln, raw in pre_block + post_block
-                     if raw.strip() and not raw.strip().startswith("#")],
-                    default=None,
-                )
-                if last_rule_line != fin_line:
-                    rep.error(path, fin_line, "FINAL должен быть последним правилом")
+                if parsed_rules[-1] is not fin:
+                    rep.error(path, fin.line,
+                              "FINAL должен быть последним правилом")
 
-            block: list[Rule] = []
-            for line_no, raw in section.lines[begin_idx + 1:end_idx]:
-                rule = parse_rule_line(raw, line_no, path, rep, local_groups)
-                if rule is not None:
-                    block.append(rule)
-            result["rules"] = block
+            result["category_rules"] = category_rules
 
         elif section.name in ("Host", "URL Rewrite", "Header", "Body Rewrite",
                               "Script", "MITM", "Replica", "Panel", "Task"):
@@ -1012,7 +1045,7 @@ def validate_config(path: Path, rep: Reporter, groups: set[str] | None = None,
             pass
 
     if check_sync:
-        check_config_sync(path, result.get("rules", []), repo, rep)
+        check_config_sync(path, result.get("category_rules", []), repo, rep)
         if repo is not None:
             expected_update_url = f"{repo.raw_base}/{path.name}"
             actual_update_url = result.get("general", {}).get("update-url")
@@ -1040,8 +1073,10 @@ def render_block(config_name: str, repo: RepoInfo) -> str:
     return "\n".join(lines)
 
 
-def check_config_sync(path: Path, block: list[Rule], repo: RepoInfo | None,
-                      rep: Reporter):
+def check_config_sync(path: Path,
+                      category_rules: list[tuple[Category, Rule]],
+                      repo: RepoInfo | None, rep: Reporter):
+    """Сверяет RULE-SET-ссылки на rules/*.list с repo.json и политиками."""
     config_name = path.name
     if config_name not in EXPECTED_POLICIES:
         return
@@ -1051,32 +1086,26 @@ def check_config_sync(path: Path, block: list[Rule], repo: RepoInfo | None,
         return
     policies = EXPECTED_POLICIES[config_name]
 
-    # Внутри блока допустимы только RULE-SET на rules/*.list.
-    for rule in block:
-        if rule.type != "RULE-SET":
+    seen: dict[str, Rule] = {}
+    for cat, rule in category_rules:
+        if cat.key in seen:
             rep.error(path, rule.line,
-                      f"внутри блока RULE-SET найдено правило {rule.raw!r}; "
-                      f"списки правил должны подключаться только через RULE-SET")
-            return
+                      f"RULE-SET для категории {cat.filename} указан "
+                      f"более одного раза")
+            continue
+        seen[cat.key] = rule
 
-    expected = [
-        f"RULE-SET,{repo.rules_base}/{cat.filename},{policies[cat.key]}"
-        for cat in CATEGORIES
-    ]
-    actual = [rule.raw for rule in block]
-    if len(actual) != len(expected):
-        rep.error(path, None,
-                  f"блок RULE-SET устарел: строк {len(actual)}, ожидается "
-                  f"{len(expected)}; выполните "
-                  f"'python3 scripts/validate.py --write'")
-        return
-    for idx, (want, got) in enumerate(zip(expected, actual), 1):
-        if want != got:
+    for cat in CATEGORIES:
+        want = f"RULE-SET,{repo.rules_base}/{cat.filename},{policies[cat.key]}"
+        rule = seen.get(cat.key)
+        if rule is None:
             rep.error(path, None,
-                      f"блок RULE-SET устарел на позиции {idx}: ожидается "
-                      f"{want!r}, найдено {got!r}; выполните "
+                      f"в [Rule] нет RULE-SET для категории {cat.filename}; "
+                      f"ожидается {want!r}")
+        elif rule.raw != want:
+            rep.error(path, rule.line,
+                      f"ожидается {want!r}, найдено {rule.raw!r}; выполните "
                       f"'python3 scripts/validate.py --write'")
-            return
 
 
 def replace_update_url(text: str, path: Path, repo: RepoInfo) -> str:
@@ -1218,13 +1247,17 @@ def main(argv=None) -> int:
                 text = read_text(path, rep)
                 if text is None:
                     continue
-                block = render_block(name, repo)
-                new_text, ok = replace_block(text, block)
-                if not ok:
-                    rep.error(path, None,
-                              "не удалось заменить блок RULE-SET (маркеры "
-                              "отсутствуют или задвоены)")
-                    continue
+                new_text = text
+                # Блок GENERATED RULES пересобирается только если он есть;
+                # конфиг без маркеров [Rule] правится вручную.
+                if BEGIN_MARK in text or END_MARK in text:
+                    block = render_block(name, repo)
+                    new_text, ok = replace_block(new_text, block)
+                    if not ok:
+                        rep.error(path, None,
+                                  "не удалось заменить блок RULE-SET (маркеры "
+                                  "отсутствуют или задвоены)")
+                        continue
                 new_text = replace_update_url(new_text, path, repo)
                 if new_text != text:
                     atomic_write(path, new_text)
