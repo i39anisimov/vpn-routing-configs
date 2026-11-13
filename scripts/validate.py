@@ -50,6 +50,14 @@ RULES_DIR = ROOT / "rules"
 BEGIN_MARK = "# >>> GENERATED RULES: BEGIN >>>"
 END_MARK = "# >>> GENERATED RULES: END <<<"
 
+# Surge-совместимая директива автообновления конфига: должна быть первой
+# строкой файла. interval задаётся в секундах.
+MANAGED_RE = re.compile(
+    r"^#!MANAGED-CONFIG\s+(https?://\S+)\s+interval=(\d+)\s*$",
+    re.IGNORECASE,
+)
+EXPECTED_UPDATE_INTERVAL = 12 * 60 * 60  # 12 часов
+
 CONFIG_NAMES = ("shadowrocket_home.conf", "shadowrocket_general.conf")
 REPO_FILE = ROOT / "repo.json"
 
@@ -934,7 +942,25 @@ def validate_config(path: Path, rep: Reporter, groups: set[str] | None = None,
         rep.error(path, sections[-1].line, "секция [Rule] должна быть последней")
 
     result = {"path": path, "general": {}, "groups": set(),
-              "category_rules": []}
+              "category_rules": [], "managed": None}
+
+    # #!MANAGED-CONFIG <url> interval=<секунды> — первая строка файла,
+    # задаёт URL и интервал автообновления конфига в Shadowrocket.
+    for i, raw in enumerate(text.splitlines(), 1):
+        stripped = raw.strip()
+        if not stripped.startswith("#!MANAGED-CONFIG"):
+            continue
+        m = MANAGED_RE.match(stripped)
+        if not m:
+            rep.error(path, i,
+                      "строка #!MANAGED-CONFIG должна иметь вид "
+                      "#!MANAGED-CONFIG <url> interval=<секунды>")
+            break
+        if i != 1:
+            rep.error(path, i,
+                      "#!MANAGED-CONFIG должна быть первой строкой файла")
+        result["managed"] = (i, m.group(1), int(m.group(2)))
+        break
 
     for section in sections:
         if section.name == "General":
@@ -1057,6 +1083,20 @@ def validate_config(path: Path, rep: Reporter, groups: set[str] | None = None,
                 rep.error(path, None,
                           f"update-url должен быть {expected_update_url!r}, "
                           f"найдено {actual_update_url!r}")
+
+            managed = result.get("managed")
+            if managed is not None:
+                line_no, managed_url, interval = managed
+                if managed_url != expected_update_url:
+                    rep.error(path, line_no,
+                              f"URL в #!MANAGED-CONFIG должен быть "
+                              f"{expected_update_url!r}, найдено "
+                              f"{managed_url!r}")
+                if interval != EXPECTED_UPDATE_INTERVAL:
+                    rep.error(path, line_no,
+                              f"interval в #!MANAGED-CONFIG должен быть "
+                              f"{EXPECTED_UPDATE_INTERVAL} секунд (12 часов), "
+                              f"найдено {interval}")
     return result
 
 
@@ -1113,6 +1153,15 @@ def replace_update_url(text: str, path: Path, repo: RepoInfo) -> str:
     pattern = re.compile(r"(?m)^#?\s*update-url\s*=.*$")
     if pattern.search(text):
         return pattern.sub(f"update-url = {expected}", text, count=1)
+    return text
+
+
+def replace_managed_config(text: str, path: Path, repo: RepoInfo) -> str:
+    expected = (f"#!MANAGED-CONFIG {repo.raw_base}/{path.name} "
+                f"interval={EXPECTED_UPDATE_INTERVAL}")
+    pattern = re.compile(r"(?mi)^#!MANAGED-CONFIG\s+\S+\s+interval=\d+\s*$")
+    if pattern.search(text):
+        return pattern.sub(expected, text, count=1)
     return text
 
 
@@ -1259,6 +1308,7 @@ def main(argv=None) -> int:
                                   "отсутствуют или задвоены)")
                         continue
                 new_text = replace_update_url(new_text, path, repo)
+                new_text = replace_managed_config(new_text, path, repo)
                 if new_text != text:
                     atomic_write(path, new_text)
                     print(f"  обновлён {name}")

@@ -105,6 +105,18 @@ FINAL,DIRECT
 не отдаст файлы правил без токена. `update-url` в каждом конфиге указывает
 на его собственный raw-URL, поэтому Shadowrocket может обновлять конфиг.
 
+Первой строкой каждого конфига стоит Surge-совместимая директива
+автообновления:
+
+```
+#!MANAGED-CONFIG https://raw.githubusercontent.com/<owner>/<repo>/main/shadowrocket_home.conf interval=43200
+```
+
+`interval` — период в секундах: `43200` = 12 часов. По этой директиве
+Shadowrocket периодически перечитывает конфиг с raw-URL, а вместе с ним
+обновляются и подключённые `RULE-SET`. URL директивы должен совпадать
+с `update-url`; `--write` синхронизирует оба.
+
 ### `shadowrocket_home.conf` — домашний режим
 
 - REJECT-список (`rules/reject.list`) — `REJECT` (первый приоритет)
@@ -213,7 +225,7 @@ python3 scripts/validate.py --strict # предупреждения считат
 5. В Shadowrocket обновить конфиг или дождаться обновления `RULE-SET`.
 
 `--write` обновляет `# TOTAL:` и `# UPDATED:` в заголовках списков, а также
-`update-url` в обоих конфигах. Блок `RULE-SET` внутри маркеров
+`update-url` и `#!MANAGED-CONFIG` в обоих конфигах. Блок `RULE-SET` внутри маркеров
 `GENERATED RULES` пересобирается только если маркеры есть; конфиг без
 маркеров правится вручную. Если в правилах есть ошибка, запись не выполняется.
 
@@ -258,6 +270,8 @@ python3 scripts/validate.py --strict # предупреждения считат
 - если маркеры `GENERATED RULES` присутствуют, REJECT и `FINAL` должны быть
   вне блока, а ссылки на `rules/*.list` — внутри;
 - `update-url` указывает на raw-URL самого конфига;
+- если есть первая строка `#!MANAGED-CONFIG <url> interval=<секунды>`,
+  её URL совпадает с `update-url`, а `interval` равен `43200` (12 часов);
 - одинаковость `[General]` в двух конфигах
   (предупреждение при расхождении).
 
