@@ -74,3 +74,8 @@ DOMAIN-SUFFIX,logrocket.com
 DOMAIN-SUFFIX,mixpanel.com
 DOMAIN-SUFFIX,segment.io
 DOMAIN-SUFFIX,naarakstudio.com
+DOMAIN-SUFFIX,googleads.g.doubleclick.net
+DOMAIN-SUFFIX,pagead2.googlesyndication.com
+DOMAIN-SUFFIX,www.googleadservices.com
+DOMAIN-SUFFIX,adservice.google.com
+DOMAIN-SUFFIX,static.doubleclick.net
